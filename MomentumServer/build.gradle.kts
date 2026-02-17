@@ -1,9 +1,14 @@
+val ktorVersion: String = "3.4.0"
+val kotlinVersion: String = "2.3.0"
+val logbackVersion: String = "1.4.14"
+
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.3.0"
     alias(libs.plugins.ktor)
 }
 
-group = "com.example"
+group = "com.momentum"
 version = "0.0.1"
 
 application {
@@ -29,6 +34,9 @@ dependencies {
     implementation(libs.ktor.server.netty)
     implementation(libs.logback.classic)
     implementation(libs.ktor.server.config.yaml)
+
+    implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
+
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)
 }
