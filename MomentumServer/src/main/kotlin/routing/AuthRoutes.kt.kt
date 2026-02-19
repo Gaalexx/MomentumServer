@@ -1,5 +1,7 @@
 package com.example.routing
 
+import com.example.Models.User
+import com.example.database.UserModel
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -11,16 +13,16 @@ data class UserInfo(
     val password: String
 )
 
-@Serializable
-data class Answer(
-    val ans: String,
-)
+//@Serializable
+//data class Answer(
+//    val ans: String,
+//)
 
 fun Route.authRoutes() {
-    post("/mail") {
+    post("/insert") {
         val body = call.receive<UserInfo>()
 
-        val ans: Answer = Answer("Ok")
-        call.respond(ans)
+        UserModel.insert(User(body.username, body.password))
+        call.respond(body)
     }
 }

@@ -1,6 +1,7 @@
 val ktorVersion: String = "3.4.0"
 val kotlinVersion: String = "2.3.0"
 val logbackVersion: String = "1.4.14"
+val exposedVersion: String = "0.56.0"
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
@@ -34,6 +35,12 @@ dependencies {
     implementation(libs.ktor.server.netty)
     implementation(libs.logback.classic)
     implementation(libs.ktor.server.config.yaml)
+
+    implementation("org.jetbrains.exposed:exposed-core:$exposedVersion")
+    implementation("org.jetbrains.exposed:exposed-dao:$exposedVersion")
+    implementation("org.jetbrains.exposed:exposed-jdbc:$exposedVersion")
+    implementation("org.postgresql:postgresql:42.7.10")
+
 
     implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
 
