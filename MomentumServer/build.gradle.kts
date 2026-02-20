@@ -41,6 +41,8 @@ dependencies {
     implementation("org.jetbrains.exposed:exposed-jdbc:$exposedVersion")
     implementation("org.postgresql:postgresql:42.7.10")
 
+    implementation("org.flywaydb:flyway-core:10.17.0")
+    implementation("org.flywaydb:flyway-database-postgresql:10.17.0")
 
     implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
 
