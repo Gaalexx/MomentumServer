@@ -9,8 +9,13 @@ fun main(args: Array<String>) {
 }
 
 fun Application.module() {
-    Database.connect("jdbc:postgresql://localhost:55000/Momentum", driver = "org.postgresql.Driver", user = "app", password = "app")
-    runMigrations()
+
+    val url = System.getenv("DB_URL") ?: "jdbc:postgresql://localhost:55000/Momentum"
+    val user = System.getenv("DB_USER") ?: "app"
+    val pass = System.getenv("DB_PASSWORD") ?: "app"
+
+    Database.connect(url, driver = "org.postgresql.Driver", user = user, password = pass)
+    runMigrations(url, user, pass)
     configureHTTP()
     configureMonitoring()
     configureSecurity()
@@ -18,12 +23,12 @@ fun Application.module() {
     configureRouting()
 }
 
-fun runMigrations() {
+fun runMigrations(url: String, user: String, pass: String) {
     Flyway.configure()
         .dataSource(
-            "jdbc:postgresql://localhost:55000/Momentum",
-            "app",
-            "app"
+            url,
+            user,
+            pass
         )
         .driver("org.postgresql.Driver")
         .load()
