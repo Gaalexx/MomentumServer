@@ -41,7 +41,6 @@ services:
       DB_URL: jdbc:postgresql://db:5432/${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
-      # Если твой Ktor слушает другой порт — поменяй тут и в nginx.conf
       PORT: "8080"
     networks: [backend]
     restart: unless-stopped
