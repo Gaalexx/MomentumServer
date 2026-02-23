@@ -26,10 +26,10 @@ data class UserInfo(
 
 fun Route.authRoutes() {
     val jwtConfig = environment.config.config("jwt")
-    val jwtAudience = jwtConfig.property("jwt.audience").getString()
-    val jwtDomain = jwtConfig.property("jwt.domain").getString()
-    val jwtRealm = jwtConfig.property("jwt.realm").getString()
-    val jwtSecret = jwtConfig.property("jwt.secret").getString()
+    val jwtAudience = jwtConfig.property("audience").getString()
+    val jwtDomain = jwtConfig.property("domain").getString()
+    val jwtRealm = jwtConfig.property("realm").getString()
+    val jwtSecret = jwtConfig.property("secret").getString()
 
     post("/check-email") {
         val body = call.receive<CheckEmailRequestDTO>()

@@ -42,6 +42,9 @@ fun Application.configureRouting() {
                 get("/w"){
                     call.respond(listOf(Respond("WWW"), Respond("WW"), Respond("W")))
                 }
+                get("/"){
+                    call.respond("Hello Momentum!")
+                }
             }
         }
         get("/"){
