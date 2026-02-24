@@ -9,7 +9,6 @@ import com.example.Models.CheckResponseDTO
 import com.example.Models.LoginResponseDTO
 import com.example.Models.LoginUserRequestDTO
 import com.example.Models.RegisterUserRequestDTO
-import com.example.Models.User
 import com.example.database.UserModel
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.*
@@ -91,12 +90,14 @@ fun Route.authRoutes() {
             call.respond(HttpStatusCode.BadRequest)
             return@post
         }
-        else if (body.phone == null){
+        else if (body.phone == null && body.email != null){
             token = JWT.create()
                 .withIssuer(jwtDomain)
                 .withAudience(jwtAudience)
                 .withClaim("email", body.email)
                 .sign(Algorithm.HMAC256(jwtSecret))
+
+            UserModel.registerNewUser(body.email, body.password)
         }
         else {
             token = JWT.create()
@@ -104,6 +105,7 @@ fun Route.authRoutes() {
                 .withAudience(jwtAudience)
                 .withClaim("phone", body.phone)
                 .sign(Algorithm.HMAC256(jwtSecret))
+            // может надо дописать версию с регистрацией с телефоном или сделать регистрацию только по почте
         }
 
         call.respond(HttpStatusCode.OK, LoginResponseDTO(token))
