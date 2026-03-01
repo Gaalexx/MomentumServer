@@ -48,6 +48,8 @@ dependencies {
 
     implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
 
+    implementation(libs.minio)
+
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)
 }

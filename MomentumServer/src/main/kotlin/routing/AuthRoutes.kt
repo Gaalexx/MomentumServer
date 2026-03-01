@@ -54,7 +54,6 @@ fun Route.authRoutes() {
 
         call.respond(HttpStatusCode.OK, CheckResponseDTO(true))
     }
-
     post("/login"){
         val body = call.receive<LoginUserRequestDTO>()
         val token: String
