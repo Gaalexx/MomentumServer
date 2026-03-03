@@ -9,20 +9,25 @@ import io.minio.http.Method
 import java.io.ByteArrayInputStream
 import java.time.Duration
 
+interface Storage{
+    fun putObjectBytes(key: String, bytes: ByteArray, contentType: String = "application/octet-stream")
+    fun presignPutUrl(key: String, expires: Duration = Duration.ofMinutes(2)): String
+}
+
 class MinioStorage(
     private val endpoint: String = System.getenv("S3_HOST") ?: "http://localhost:8080",
     private val accessKey: String = System.getenv("S3_ACCESS_KEY") ?: "minio-access-key",
     private val secretKey: String = System.getenv("S3_SECRET_KEY") ?: "minio-secret-key",
     private val bucket: String = System.getenv("S3_ID") ?: "minio-bucket",
     private val region: String = System.getenv("S3_REGION") ?: "ru-1",
-){
+) : Storage {
     /*private*/ val minio: MinioClient = MinioClient.builder()
         .endpoint(endpoint)
         .credentials(accessKey, secretKey)
         .region(region)
         .build()
 
-    fun putObjectBytes(key: String, bytes: ByteArray, contentType: String = "application/octet-stream") {
+    override fun putObjectBytes(key: String, bytes: ByteArray, contentType: String) {
         ByteArrayInputStream(bytes).use { input ->
             minio.putObject(
                 PutObjectArgs.builder()
@@ -35,9 +40,9 @@ class MinioStorage(
         }
     }
 
-    fun presignPutUrl(
+    override fun presignPutUrl(
         key: String,
-        expires: Duration = Duration.ofMinutes(2)
+        expires: Duration
     ): String {
         return minio.getPresignedObjectUrl(
             GetPresignedObjectUrlArgs.builder()
@@ -49,3 +54,5 @@ class MinioStorage(
         )
     }
 }
+
+object S3Client : Storage by MinioStorage()
