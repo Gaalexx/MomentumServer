@@ -1,6 +1,5 @@
 package com.example.Models
 
-import ch.qos.logback.core.util.FileSize
 import com.example.database.MediaType
 import com.example.database.UploadingStatus
 import kotlinx.serialization.Serializable
@@ -14,12 +13,14 @@ data class UploadInfoDTO(
 )
 
 @Serializable
-data class S3UploadInfoDTO(
+data class S3UpdateStatusDTO(
     val status: UploadingStatus,
+    val mediaId: String,
     val title: String? = null,
 )
 
 @Serializable
-enum class MediaType {
-    IMAGE, VIDEO, AUDIO
-}
+data class PresignedURLDTO(
+    val urlToLoad: String,
+    val mediaId: String
+)
