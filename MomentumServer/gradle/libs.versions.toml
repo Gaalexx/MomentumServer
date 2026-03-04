@@ -2,8 +2,10 @@
 kotlin = "2.3.0"
 ktor = "3.4.0"
 logback = "1.4.14"
+minio = "8.6.0"
 
 [libraries]
+minio = { module = "io.minio:minio", version.ref = "minio" }
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
 ktor-server-openapi = { module = "io.ktor:ktor-server-openapi", version.ref = "ktor" }
 ktor-server-routing-openapi = { module = "io.ktor:ktor-server-routing-openapi", version.ref = "ktor" }

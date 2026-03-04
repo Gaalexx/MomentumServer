@@ -32,6 +32,8 @@ object UserModel : Table("users") {
     private val telephone = varchar("telephone", 20)
     private val email = varchar("email", 255)
     private val username = varchar("username", 50)
+    override val primaryKey = PrimaryKey(UserModel.id)
+
 
     private fun hashPassword(password: String): String {
         return BCrypt.hashpw(password, BCrypt.gensalt())
