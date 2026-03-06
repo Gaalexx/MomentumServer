@@ -8,10 +8,12 @@ import io.minio.GetPresignedObjectUrlArgs
 import io.minio.http.Method
 import java.io.ByteArrayInputStream
 import java.time.Duration
+import java.util.concurrent.TimeUnit
 
 interface Storage{
     fun putObjectBytes(key: String, bytes: ByteArray, contentType: String = "application/octet-stream")
     fun presignPutUrl(key: String, expires: Duration = Duration.ofMinutes(2)): String
+    fun getPresignedObjectUrl(objectKey: String, expiresInMinutes: Int = 15): String
 }
 
 class MinioStorage(
@@ -50,6 +52,17 @@ class MinioStorage(
                 .bucket(bucket)
                 .`object`(key)
                 .expiry(expires.toSeconds().toInt())
+                .build()
+        )
+    }
+
+    override fun getPresignedObjectUrl(objectKey: String, expiresInMinutes: Int): String {
+        return minio.getPresignedObjectUrl(
+            GetPresignedObjectUrlArgs.builder()
+                .method(Method.GET)
+                .bucket(bucket)
+                .`object`(objectKey)
+                .expiry(expiresInMinutes, TimeUnit.MINUTES)
                 .build()
         )
     }
