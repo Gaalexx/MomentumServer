@@ -75,10 +75,14 @@ fun Route.s3Routes(){ // TODO все это надо обернуть в authori
         val userId = UUID.fromString("4a3416a6-597a-431c-bf95-43ee749f82c6") // TODO из jwt
 
         val listOfPosts = PostsTable.getPostsOfUser(userId)
+        listOfPosts.forEach {
+            println(it.title)
+        }
         val listToSend: MutableList<PostDTO> = mutableListOf()
         listOfPosts.forEach { it ->
             val media = MediaTable.getObjectKeyOfPost(it.id)
             val presignedURL = S3Client.getPresignedObjectUrl(media)
+            println(presignedURL)
             listToSend.add(PostDTO(it.id.toString(), it.userId.toString(), it.title, it.inUse, presignedURL, it.createdAt))
         }
 
