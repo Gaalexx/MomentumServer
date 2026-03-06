@@ -41,7 +41,7 @@ object PostsTable : Table("posts") {
 
     fun getPostsOfUser(userId: UUID): List<PostModel> = transaction {
             PostsTable.selectAll()
-                .where { (PostsTable.userId eq userId) and (PostsTable.inUse eq Op.TRUE) }
+                .where { (PostsTable.userId eq userId) and (PostsTable.inUse eq true) }
                 .map{ row -> PostModel(row[PostsTable.id], row[PostsTable.userId], row[PostsTable.text] ?: "", row[PostsTable.inUse], row[PostsTable.createdAt].toString()) }
         }
 
