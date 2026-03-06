@@ -80,7 +80,7 @@ object MediaTable : Table(name = "media") {
     fun getObjectKeyOfPost(postId: UUID): String = transaction {
             MediaTable
                 .select(MediaTable.objectKey)
-                .where { MediaTable.id eq postId }
+                .where { MediaTable.postId eq postId }
                 .single()[MediaTable.objectKey]
         }
 

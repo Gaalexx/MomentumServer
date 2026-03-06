@@ -31,7 +31,7 @@ object PostsTable : Table("posts") {
     fun insertNewPost(postModel: PostModel) {
         transaction {
             PostsTable.insert {
-                it[id] = UUID.randomUUID()
+                it[id] = postModel.id
                 it[userId] = postModel.userId
                 it[text] = postModel.title
                 it[inUse] = postModel.inUse
