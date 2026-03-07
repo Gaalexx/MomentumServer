@@ -1,18 +1,25 @@
+# syntax=docker/dockerfile:1.4
 FROM gradle:8.7-jdk21 AS build
+
 WORKDIR /app
 
-COPY gradle /app/gradle
-COPY gradlew /app/gradlew
-COPY gradlew.bat /app/gradlew.bat
-COPY build.gradle.kts /app/build.gradle.kts
-COPY settings.gradle.kts /app/settings.gradle.kts
-COPY gradle.properties /app/gradle.properties
-COPY src /app/src
+COPY gradle ./gradle
+COPY gradlew ./gradlew
+COPY gradlew.bat ./gradlew.bat
+COPY build.gradle.kts settings.gradle.kts gradle.properties ./
 
-RUN chmod +x /app/gradlew
-RUN /app/gradlew buildFatJar --no-daemon
+RUN chmod +x gradlew
+
+# Mount Gradle Cache(persists between builds)
+RUN --mount=type=cache,target=/root/.gradle \
+    ./gradlew dependencies --no-daemon
+
+COPY src ./src
+RUN --mount=type=cache,target=/root/.gradle \
+    ./gradlew buildFatJar --no-daemon
 
 FROM eclipse-temurin:21-jre
+
 WORKDIR /app
 
 COPY --from=build /app/build/libs/*-all.jar /app/app.jar

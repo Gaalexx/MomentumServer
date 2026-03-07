@@ -20,6 +20,10 @@ kotlin {
     jvmToolchain(21)
 }
 
+repositories {
+    mavenCentral()
+}
+
 dependencies {
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.openapi)
@@ -52,4 +56,8 @@ dependencies {
 
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)
+
+    implementation("jakarta.mail:jakarta.mail-api:2.1.1")
+    implementation("org.eclipse.angus:angus-mail:2.0.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
 }

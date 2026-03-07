@@ -14,6 +14,9 @@ fun Application.module() {
     val user = System.getenv("DB_USER") ?: "app"
     val pass = System.getenv("DB_PASSWORD") ?: "app"
 
+    // launch of background cleaning
+    CodeStorage.startCleanupScheduler(this)
+
     Database.connect(url, driver = "org.postgresql.Driver", user = user, password = pass)
     runMigrations(url, user, pass)
     configureHTTP()
