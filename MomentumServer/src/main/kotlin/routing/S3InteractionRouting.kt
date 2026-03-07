@@ -79,7 +79,7 @@ fun Route.s3Routes(){ // TODO все это надо обернуть в authori
             println(it.title)
         }
         val listToSend: MutableList<PostDTO> = mutableListOf()
-        listOfPosts.forEach { it ->
+        listOfPosts.forEach { it ->  // TODO не отказоустойчивый код. надо проверять, нашлось ли media
             val media = MediaTable.getObjectKeyOfPost(it.id)
             val presignedURL = S3Client.getPresignedObjectUrl(media)
             println(presignedURL)
