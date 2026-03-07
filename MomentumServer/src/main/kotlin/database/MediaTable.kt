@@ -4,6 +4,7 @@ import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
 import java.util.UUID
@@ -75,4 +76,12 @@ object MediaTable : Table(name = "media") {
             }
         }
     }
+
+    fun getObjectKeyOfPost(postId: UUID): String = transaction {
+            MediaTable
+                .select(MediaTable.objectKey)
+                .where { MediaTable.postId eq postId }
+                .single()[MediaTable.objectKey]
+        }
+
 }

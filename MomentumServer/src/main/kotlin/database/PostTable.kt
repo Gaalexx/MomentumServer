@@ -1,9 +1,12 @@
 package com.example.database
 
 
+import org.jetbrains.exposed.sql.Op
 import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.javatime.timestampWithTimeZone
+import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.util.UUID
 
@@ -12,6 +15,7 @@ data class PostModel(
     val userId: UUID,
     val title: String,
     val inUse: Boolean,
+    val createdAt: String? = null
 )
 
 object PostsTable : Table("posts") {
@@ -27,11 +31,18 @@ object PostsTable : Table("posts") {
     fun insertNewPost(postModel: PostModel) {
         transaction {
             PostsTable.insert {
-                it[id] = UUID.randomUUID()
+                it[id] = postModel.id
                 it[userId] = postModel.userId
                 it[text] = postModel.title
                 it[inUse] = postModel.inUse
             }
         }
     }
+
+    fun getPostsOfUser(userId: UUID): List<PostModel> = transaction {
+            PostsTable.selectAll()
+                .where { (PostsTable.userId eq userId) and (PostsTable.inUse eq true) }
+                .map{ row -> PostModel(row[PostsTable.id], row[PostsTable.userId], row[PostsTable.text] ?: "", row[PostsTable.inUse], row[PostsTable.createdAt].toString()) }
+        }
+
 }
