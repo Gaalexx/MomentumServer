@@ -40,5 +40,5 @@ data class LoginUserRequestDTO(
 
 @Serializable
 data class LoginResponseDTO(
-    val jwt: String,
+    val jwt: String?,
 )

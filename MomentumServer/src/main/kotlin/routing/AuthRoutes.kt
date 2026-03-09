@@ -226,9 +226,7 @@ fun Route.authRoutes() {
 
     post("/login"){
         val body = call.receive<LoginUserRequestDTO>()
-        val token: String
-        // сравнить пароли и войти
-        // может быть позже положу uuid и hasPremium под jwt
+        val token: String?
         if (body.email == null && body.phone == null) {
             call.respond(HttpStatusCode.BadRequest)
             return@post
@@ -239,11 +237,20 @@ fun Route.authRoutes() {
                 call.respond(HttpStatusCode.BadRequest)
                 return@post
             }
-            token = JWT.create()
-                .withIssuer(jwtDomain)
-                .withAudience(jwtAudience)
-                .withClaim("email", body.email)
-                .sign(Algorithm.HMAC256(jwtSecret))
+            else{
+                if (UserModel.passwordIsValid(id, body.password)){
+                    token = JWT.create()
+                        .withIssuer(jwtDomain)
+                        .withAudience(jwtAudience)
+                        .withClaim("email", body.email)
+                        .sign(Algorithm.HMAC256(jwtSecret))
+                }
+                else{
+                    token = null
+                }
+
+            }
+
         }
         else if(body.phone != null && body.email == null) {
             val id = UserModel.getIdByPhone(body.phone)
@@ -251,11 +258,18 @@ fun Route.authRoutes() {
                 call.respond(HttpStatusCode.BadRequest)
                 return@post
             }
-            token = JWT.create()
-                .withIssuer(jwtDomain)
-                .withAudience(jwtAudience)
-                .withClaim("phone", body.phone)
-                .sign(Algorithm.HMAC256(jwtSecret))
+            else{
+                if (UserModel.passwordIsValid(id, body.password)){
+                    token = JWT.create()
+                        .withIssuer(jwtDomain)
+                        .withAudience(jwtAudience)
+                        .withClaim("phone", body.phone)
+                        .sign(Algorithm.HMAC256(jwtSecret))
+                }
+                else{
+                    token = null
+                }
+            }
         }
         else {
             call.respond(HttpStatusCode.BadRequest)
