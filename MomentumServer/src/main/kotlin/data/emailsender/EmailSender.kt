@@ -1,31 +1,16 @@
-package com.example.email
+package com.example.data.emailsender
 
-import jakarta.mail.*
+import jakarta.mail.Authenticator
+import jakarta.mail.Message
+import jakarta.mail.MessagingException
+import jakarta.mail.PasswordAuthentication
+import jakarta.mail.Session
+import jakarta.mail.Transport
 import jakarta.mail.internet.InternetAddress
 import jakarta.mail.internet.MimeMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.util.*
-
-data class SmtpConfig(
-    val host: String,
-    val port: String,
-    val username: String,
-    val password: String,
-    val fromEmail: String
-)
-
-object EmailConfig {
-    val smtpConfig by lazy {
-        SmtpConfig(
-            host = System.getenv("SMTP_HOST") ?: "smtp.gmail.com",
-            port = System.getenv("SMTP_PORT") ?: "587",
-            username = System.getenv("SMTP_USERNAME") ?: error("SMTP_USERNAME not set"),
-            password = System.getenv("SMTP_PASSWORD") ?: error("SMTP_PASSWORD not set"),
-            fromEmail = System.getenv("SMTP_FROM") ?: System.getenv("SMTP_USERNAME") ?: error("SMTP_FROM not set")
-        )
-    }
-}
+import java.util.Properties
 
 object EmailSender {
     suspend fun sendVerificationCode(recipientEmail: String, code: String): Result<Unit> =

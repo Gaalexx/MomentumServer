@@ -1,5 +1,7 @@
 package com.example.database
 
+import com.example.data.hashers.IHasher
+import com.example.data.hashers.PasswordHasher
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.deleteWhere
@@ -35,19 +37,14 @@ object UserModel : Table("users") {
     override val primaryKey = PrimaryKey(UserModel.id)
 
 
-    private fun hashPassword(password: String): String {
-        return BCrypt.hashpw(password, BCrypt.gensalt())
-    }
+    private val passwordHasher = PasswordHasher()
 
-    private fun checkPassword(password: String, hashed: String): Boolean {
-        return BCrypt.checkpw(password, hashed)
-    }
 
     fun registerNewUserWithEmail(userEmail: String, userPassword: String) {
         transaction {
             UserModel.insert {
                 it[id] = UUID.randomUUID()
-                it[password] = hashPassword(userPassword)
+                it[password] = passwordHasher.hash(userPassword)
                 it[email] = userEmail
             }
         }
@@ -57,7 +54,7 @@ object UserModel : Table("users") {
         transaction {
             UserModel.insert {
                 it[id] = UUID.randomUUID()
-                it[password] = hashPassword(userPassword)
+                it[password] = passwordHasher.hash(userPassword)
                 it[telephone] = userPhone
             }
         }
@@ -91,7 +88,7 @@ object UserModel : Table("users") {
                 .map { it[UserModel.password] }
                 .single()
         }
-        return checkPassword(password, hashedPassword)
+        return passwordHasher.compareWithHashed(password, hashedPassword)
     }
 
     fun getIdByEmail(email: String): UUID? {
