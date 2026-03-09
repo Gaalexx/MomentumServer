@@ -185,6 +185,38 @@ fun Route.authRoutes() {
         }
     }
 
+
+    post("/send-code"){
+        val body = call.receive<CheckEmailRequestDTO>()
+        val id = UserModel.getIdByEmail(body.email)
+
+        if(id != null) {
+            val code = (100000..999999).random().toString()
+            CodeStorage.saveCode(body.email, code)
+            val sendResult = EmailSender.sendVerificationCode(body.email, code)
+            sendResult.onSuccess {
+                call.respond(HttpStatusCode.OK, CheckResponseDTO(true))
+            }.onFailure {
+                call.respond(HttpStatusCode.InternalServerError, CheckResponseDTO(false))
+            }
+        }
+        else{
+            call.respond(HttpStatusCode.OK, CheckResponseDTO(false))
+        }
+    }
+
+    post("/check-email-login"){
+        val body = call.receive<CheckEmailRequestDTO>()
+        val id = UserModel.getIdByEmail(body.email)
+
+        if(id == null) {
+            call.respond(HttpStatusCode.OK, CheckResponseDTO(false))
+        }
+        else{
+            call.respond(HttpStatusCode.OK, CheckResponseDTO(true))
+        }
+    }
+
     post("/check-telephone") {
         val body = call.receive<CheckPhoneNumberRequestDTO>()
 
