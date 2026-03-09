@@ -11,6 +11,7 @@ import com.example.database.PostModel
 import com.example.database.PostsTable
 import com.example.database.UploadingStatus
 import com.example.s3Client.S3Client
+import com.example.tokens.JwtService
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
@@ -20,7 +21,7 @@ import org.jetbrains.exposed.sql.selectAll
 import java.time.Duration
 import java.util.UUID
 
-fun Route.s3Routes(){ // TODO все это надо обернуть в authorize в конечном итоге + доделать удаление FAILED ссылок из медиа
+fun Route.s3Routes(jwtService: JwtService){ // TODO все это надо обернуть в authorize в конечном итоге + доделать удаление FAILED ссылок из медиа
 
     post("/upload") {
 

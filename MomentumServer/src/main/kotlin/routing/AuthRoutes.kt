@@ -13,6 +13,7 @@ import com.example.Models.RegisterUserRequestDTO
 import com.example.data.codestorage.CodeStorage
 import com.example.data.emailsender.EmailSender
 import com.example.database.UserModel
+import com.example.tokens.JwtService
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.*
 import io.ktor.server.response.*
@@ -49,7 +50,7 @@ data class SendCodeResponseDTO(
 
 
 
-fun Route.authRoutes() {
+fun Route.authRoutes(jwtService: JwtService) {
     val jwtConfig = environment.config.config("jwt")
     val jwtAudience = jwtConfig.property("audience").getString()
     val jwtDomain = jwtConfig.property("domain").getString()

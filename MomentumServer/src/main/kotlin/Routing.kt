@@ -7,6 +7,7 @@ import com.example.routing.authRoutes
 import com.example.routing.s3Routes
 import com.example.s3Client.MinioStorage
 import com.example.s3Client.testMinioUpload
+import com.example.tokens.JwtService
 import io.ktor.http.*
 import io.ktor.openapi.OpenApiInfo
 import io.ktor.server.application.*
@@ -31,7 +32,7 @@ data class Respond(
     val text: String
 )
 
-fun Application.configureRouting() {
+fun Application.configureRouting(jwtService: JwtService) {
     install(StatusPages) {
         exception<Throwable> { call, cause ->
             call.respondText(text = "500: $cause" , status = HttpStatusCode.InternalServerError)
@@ -40,24 +41,8 @@ fun Application.configureRouting() {
     routing {
         route("/api"){
             route("/momentum"){
-                authRoutes()
-                s3Routes()
-//                get("/upload"){
-//                    //id = test
-//                    //access test = user-ZhXMhVbzVmhC
-//                    //secret test = 7SH0WwFM9DMcCK8m3czKck0RVHfcBhTH
-//                    //region = ru-1
-//                    testMinioUpload(
-//                        endpoint = System.getenv("S3_HOST"),
-//                        accessKey = "user-ZhXMhVbzVmhC",
-//                        secretKey = "7SH0WwFM9DMcCK8m3czKck0RVHfcBhTH",
-//                        bucket = "test",
-//                        file = Files.createTempFile("minio-test-", ".txt").also { tempFile ->
-//                            Files.write(tempFile, "minio test ${System.currentTimeMillis()}".toByteArray())
-//                        }
-//                    )
-//                    call.respond(HttpStatusCode.OK)
-//                }
+                authRoutes(jwtService)
+                s3Routes(jwtService)
                 get("/hello") {
                     call.respond(Respond("Hello World!"))
                 }
