@@ -26,6 +26,8 @@ data class RegisterUserRequestDTO(
 
 @Serializable
 data class CheckCodeRequestDTO(
+    val email: String?,
+    val phone: String?,
     val code: String,
 )
 

@@ -25,7 +25,7 @@ import kotlinx.serialization.Serializable
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.util.concurrent.ConcurrentHashMap
+import kotlin.random.Random
 
 @Serializable
 data class UserInfo(
@@ -169,15 +169,32 @@ fun Route.authRoutes() {
     post("/check-email") {
         val body = call.receive<CheckEmailRequestDTO>()
 
-        // проверка на присутствие почты в базе данных
-        // пока что почта свободна
-
-        call.respond(HttpStatusCode.OK, CheckResponseDTO(true))
+        val id = UserModel.getIdByEmail(body.email)
+        if(id == null) {
+            val code = (100000..999999).random().toString()
+            CodeStorage.saveCode(body.email, code)
+            val sendResult = EmailSender.sendVerificationCode(body.email, code)
+            sendResult.onSuccess {
+                call.respond(HttpStatusCode.OK, CheckResponseDTO(true))
+            }.onFailure {
+                call.respond(HttpStatusCode.InternalServerError, CheckResponseDTO(false))
+            }
+        }
+        else{
+            call.respond(HttpStatusCode.OK, CheckResponseDTO(false))
+        }
     }
 
     post("/check-telephone") {
         val body = call.receive<CheckPhoneNumberRequestDTO>()
 
+        val id = UserModel.getIdByEmail(body.phone)
+        if(id == null) {
+            // TODO отправка СМС на телефон
+        }
+        else{
+            call.respond(HttpStatusCode.OK, CheckResponseDTO(false))
+        }
         // то же самое и с телефоном
 
         call.respond(HttpStatusCode.OK, CheckResponseDTO(true))
@@ -186,10 +203,27 @@ fun Route.authRoutes() {
     post("/check-code") {
         val body = call.receive<CheckCodeRequestDTO>()
 
-        // проверка кода
-
+        if(body.email != null){
+            val isValid = CodeStorage.verifyCode(body.email, body.code)
+            if(isValid){
+                call.respond(HttpStatusCode.OK, CheckResponseDTO(true))
+            }
+            else{
+                call.respond(HttpStatusCode.OK, CheckResponseDTO(false))
+            }
+        }
+        else if(body.phone != null){
+            val isValid = CodeStorage.verifyCode(body.phone, body.code)
+            if(isValid){
+                call.respond(HttpStatusCode.OK, CheckResponseDTO(true))
+            }
+            else{
+                call.respond(HttpStatusCode.OK, CheckResponseDTO(false))
+            }
+        }
         call.respond(HttpStatusCode.OK, CheckResponseDTO(true))
     }
+
     post("/login"){
         val body = call.receive<LoginUserRequestDTO>()
         val token: String
@@ -199,19 +233,33 @@ fun Route.authRoutes() {
             call.respond(HttpStatusCode.BadRequest)
             return@post
         }
-        else if (body.phone == null){
+        else if (body.phone == null && body.email != null) {
+            val id = UserModel.getIdByEmail(body.email)
+            if(id == null){
+                call.respond(HttpStatusCode.BadRequest)
+                return@post
+            }
             token = JWT.create()
                 .withIssuer(jwtDomain)
                 .withAudience(jwtAudience)
                 .withClaim("email", body.email)
                 .sign(Algorithm.HMAC256(jwtSecret))
         }
-        else {
+        else if(body.phone != null && body.email == null) {
+            val id = UserModel.getIdByPhone(body.phone)
+            if(id == null){
+                call.respond(HttpStatusCode.BadRequest)
+                return@post
+            }
             token = JWT.create()
                 .withIssuer(jwtDomain)
                 .withAudience(jwtAudience)
                 .withClaim("phone", body.phone)
                 .sign(Algorithm.HMAC256(jwtSecret))
+        }
+        else {
+            call.respond(HttpStatusCode.BadRequest)
+            return@post
         }
 
         call.respond(HttpStatusCode.OK, LoginResponseDTO(token))
@@ -220,7 +268,6 @@ fun Route.authRoutes() {
     post("/register") {
         val body = call.receive<RegisterUserRequestDTO>()
         val token: String
-        // добавить пользователя в бд
         if (body.email == null && body.phone == null) {
             call.respond(HttpStatusCode.BadRequest)
             return@post
@@ -232,15 +279,20 @@ fun Route.authRoutes() {
                 .withClaim("email", body.email)
                 .sign(Algorithm.HMAC256(jwtSecret))
 
-            UserModel.registerNewUser(body.email, body.password)
+            UserModel.registerNewUserWithEmail(body.email, body.password)
         }
-        else {
+        else if (body.email == null && body.phone != null) {
             token = JWT.create()
                 .withIssuer(jwtDomain)
                 .withAudience(jwtAudience)
                 .withClaim("phone", body.phone)
                 .sign(Algorithm.HMAC256(jwtSecret))
-            // может надо дописать версию с регистрацией с телефоном или сделать регистрацию только по почте
+
+            UserModel.registerNewUserWithPhone(body.phone, body.password)
+        }
+        else{
+            call.respond(HttpStatusCode.BadRequest)
+            return@post
         }
 
         call.respond(HttpStatusCode.OK, LoginResponseDTO(token))

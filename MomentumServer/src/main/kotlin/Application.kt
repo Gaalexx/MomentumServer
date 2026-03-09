@@ -3,6 +3,7 @@ package com.example
 import io.ktor.server.application.*
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.sql.Database
+import com.example.routing.CodeStorage
 
 fun main(args: Array<String>) {
     io.ktor.server.netty.EngineMain.main(args)

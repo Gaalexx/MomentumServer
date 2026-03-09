@@ -1,8 +1,8 @@
 package com.example.database
 
-import kotlinx.serialization.Serializable
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.util.UUID
@@ -43,12 +43,22 @@ object UserModel : Table("users") {
         return BCrypt.checkpw(password, hashed)
     }
 
-    fun registerNewUser(userEmail: String, userPassword: String) {
+    fun registerNewUserWithEmail(userEmail: String, userPassword: String) {
         transaction {
             UserModel.insert {
                 it[id] = UUID.randomUUID()
                 it[password] = hashPassword(userPassword)
                 it[email] = userEmail
+            }
+        }
+    }
+
+    fun registerNewUserWithPhone(userPhone: String, userPassword: String) {
+        transaction {
+            UserModel.insert {
+                it[id] = UUID.randomUUID()
+                it[password] = hashPassword(userPassword)
+                it[telephone] = userPhone
             }
         }
     }
@@ -76,7 +86,8 @@ object UserModel : Table("users") {
     fun passwordIsValid(userId: UUID, password: String): Boolean {
         val hashedPassword = transaction {
             UserModel
-                .select(UserModel.id eq userId)
+                .selectAll()
+                .where { UserModel.id eq userId }
                 .map { it[UserModel.password] }
                 .single()
         }
@@ -86,7 +97,8 @@ object UserModel : Table("users") {
     fun getIdByEmail(email: String): UUID? {
         return transaction {
             UserModel
-                .select(UserModel.email eq email)
+                .selectAll()
+                .where { UserModel.email eq email }
                 .map { it[UserModel.id] }
                 .singleOrNull()
         }
@@ -131,6 +143,12 @@ object UserModel : Table("users") {
             UserModel.update({ UserModel.id eq userId }) {
                 it[username] = newUsername
             }
+        }
+    }
+
+    fun deleteUser(userId: UUID) {
+        transaction {
+            UserModel.deleteWhere { UserModel.id eq userId }
         }
     }
 }
