@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS public.sessions
     user_id uuid NOT NULL,
     refrash_token_hash character varying(72) NOT NULL,
     expires_at timestamp with time zone NOT NULL,
-    revoked_at timestamp with time zone NOT NULL,
+    revoked_at timestamp with time zone,
     created_at timestamp with time zone NOT NULL DEFAULT now(),
     device_info character varying(255) NOT NULL,
     PRIMARY KEY (session_id),

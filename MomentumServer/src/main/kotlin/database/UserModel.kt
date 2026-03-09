@@ -27,7 +27,7 @@ data class User(
 )
 
 object UserModel : Table("users") {
-    private val id = UserModel.uuid("id").uniqueIndex()
+    val id = UserModel.uuid("id").uniqueIndex()
     private val password = varchar("password", 300)
     private val hasPremium = bool("has_premium").default(false)
     private val registered_at = datetime("registered_at").default(LocalDateTime.now())
