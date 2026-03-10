@@ -2,14 +2,12 @@ package com.example.database
 
 import com.example.data.hashers.TokenHasher
 import org.jetbrains.exposed.sql.Table
-import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.javatime.CurrentTimestamp
 import org.jetbrains.exposed.sql.javatime.timestamp
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.util.UUID
-import kotlin.time.Duration
 
 
 data class SessionInfo(
@@ -48,15 +46,21 @@ object SessionTable : Table("sessions") {
         }
     }
 
-    fun checkToken(token: String): Boolean { // TODO подумать как сделать лучше
-        val sessionId = transaction {
+    fun getSessionInfo(token: String): SessionInfo? { // TODO подумать как сделать лучше
+        val hashed = tokenHasher.hash(token)
+        val session = transaction {
             SessionTable.selectAll()
-                .where { SessionTable.refreshTokenHash eq tokenHasher.hash(token) }
+                .where { SessionTable.refreshTokenHash eq hashed }
                 .map{
-                    it[SessionTable.sessionId] }
+                    SessionInfo(
+                        it[userId],
+                        it[sessionId],
+                        it[refreshTokenHash],
+                        it[deviceInfo]
+                    ) }
                 .singleOrNull()
         }
-        return sessionId != null
+        return session
     }
 
 }

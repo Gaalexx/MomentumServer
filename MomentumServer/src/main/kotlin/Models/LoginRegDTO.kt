@@ -42,3 +42,8 @@ data class LoginUserRequestDTO(
 data class LoginResponseDTO(
     val jwt: String?,
 )
+
+@Serializable
+data class GetJWTDTO(
+    val token: String?,
+)

@@ -7,27 +7,20 @@ import com.example.Models.CheckCodeRequestDTO
 import com.example.Models.CheckEmailRequestDTO
 import com.example.Models.CheckPhoneNumberRequestDTO
 import com.example.Models.CheckResponseDTO
+import com.example.Models.GetJWTDTO
 import com.example.Models.LoginResponseDTO
 import com.example.Models.LoginUserRequestDTO
 import com.example.Models.RegisterUserRequestDTO
 import com.example.data.codestorage.CodeStorage
 import com.example.data.emailsender.EmailSender
+import com.example.database.SessionTable
 import com.example.database.UserModel
 import com.example.tokens.JwtService
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
-
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlin.random.Random
 
 @Serializable
 data class UserInfo(
@@ -101,6 +94,23 @@ fun Route.authRoutes(jwtService: JwtService) {
                     code = null
                 )
             )
+        }
+    }
+
+    post("/auth"){
+        val body = call.receive<GetJWTDTO>()
+        if(body.token != null){
+            val tokenInfo = SessionTable.getSessionInfo(body.token)
+            if(tokenInfo != null){
+                val tokenToSend = jwtService.createAccessToken(tokenInfo.userId.toString(), tokenInfo.sessionId.toString())
+                call.respond(HttpStatusCode.OK, GetJWTDTO(tokenToSend))
+            }
+            else{
+                call.respond(HttpStatusCode.OK, GetJWTDTO(null))
+            }
+        }
+        else{
+            call.respond(HttpStatusCode.BadRequest, GetJWTDTO(null))
         }
     }
 
