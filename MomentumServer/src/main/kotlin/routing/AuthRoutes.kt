@@ -16,6 +16,7 @@ import com.example.data.emailsender.EmailSender
 import com.example.database.SessionTable
 import com.example.database.UserModel
 import com.example.tokens.JwtService
+import com.example.tokens.RefreshTokenGenerator
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.*
 import io.ktor.server.response.*
@@ -219,11 +220,7 @@ fun Route.authRoutes(jwtService: JwtService) {
             }
             else{
                 if (UserModel.passwordIsValid(id, body.password)){
-                    token = JWT.create()
-                        .withIssuer(jwtDomain)
-                        .withAudience(jwtAudience)
-                        .withClaim("email", body.email)
-                        .sign(Algorithm.HMAC256(jwtSecret))
+                    token = RefreshTokenGenerator.generate()
                 }
                 else{
                     token = null
@@ -240,11 +237,7 @@ fun Route.authRoutes(jwtService: JwtService) {
             }
             else{
                 if (UserModel.passwordIsValid(id, body.password)){
-                    token = JWT.create()
-                        .withIssuer(jwtDomain)
-                        .withAudience(jwtAudience)
-                        .withClaim("phone", body.phone)
-                        .sign(Algorithm.HMAC256(jwtSecret))
+                    token = RefreshTokenGenerator.generate()
                 }
                 else{
                     token = null
@@ -267,20 +260,12 @@ fun Route.authRoutes(jwtService: JwtService) {
             return@post
         }
         else if (body.phone == null && body.email != null){
-            token = JWT.create()
-                .withIssuer(jwtDomain)
-                .withAudience(jwtAudience)
-                .withClaim("email", body.email)
-                .sign(Algorithm.HMAC256(jwtSecret))
+            token = RefreshTokenGenerator.generate()
 
             UserModel.registerNewUserWithEmail(body.email, body.password)
         }
         else if (body.email == null && body.phone != null) {
-            token = JWT.create()
-                .withIssuer(jwtDomain)
-                .withAudience(jwtAudience)
-                .withClaim("phone", body.phone)
-                .sign(Algorithm.HMAC256(jwtSecret))
+            token = RefreshTokenGenerator.generate()
 
             UserModel.registerNewUserWithPhone(body.phone, body.password)
         }
