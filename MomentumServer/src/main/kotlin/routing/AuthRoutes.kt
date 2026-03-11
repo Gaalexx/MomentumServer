@@ -221,6 +221,7 @@ fun Route.authRoutes(jwtService: JwtService) {
             else{
                 if (UserModel.passwordIsValid(id, body.password)){
                     token = RefreshTokenGenerator.generate()
+                    SessionTable.addNewSession(id, token, body.deviceInfo)
                 }
                 else{
                     token = null
@@ -238,6 +239,7 @@ fun Route.authRoutes(jwtService: JwtService) {
             else{
                 if (UserModel.passwordIsValid(id, body.password)){
                     token = RefreshTokenGenerator.generate()
+                    SessionTable.addNewSession(id, token, body.deviceInfo)
                 }
                 else{
                     token = null
@@ -262,12 +264,14 @@ fun Route.authRoutes(jwtService: JwtService) {
         else if (body.phone == null && body.email != null){
             token = RefreshTokenGenerator.generate()
 
-            UserModel.registerNewUserWithEmail(body.email, body.password)
+            val uid = UserModel.registerNewUserWithEmail(body.email, body.password)
+            SessionTable.addNewSession(uid, token, body.deviceInfo)
         }
         else if (body.email == null && body.phone != null) {
             token = RefreshTokenGenerator.generate()
 
-            UserModel.registerNewUserWithPhone(body.phone, body.password)
+            val uid = UserModel.registerNewUserWithPhone(body.phone, body.password)
+            SessionTable.addNewSession(uid, token, body.deviceInfo)
         }
         else{
             call.respond(HttpStatusCode.BadRequest)

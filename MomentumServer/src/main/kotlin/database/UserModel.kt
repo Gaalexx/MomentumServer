@@ -40,24 +40,28 @@ object UserModel : Table("users") {
     private val passwordHasher = PasswordHasher()
 
 
-    fun registerNewUserWithEmail(userEmail: String, userPassword: String) {
+    fun registerNewUserWithEmail(userEmail: String, userPassword: String): UUID {
+        val userId = UUID.randomUUID()
         transaction {
             UserModel.insert {
-                it[id] = UUID.randomUUID()
+                it[id] = userId
                 it[password] = passwordHasher.hash(userPassword)
                 it[email] = userEmail
             }
         }
+        return userId
     }
 
-    fun registerNewUserWithPhone(userPhone: String, userPassword: String) {
+    fun registerNewUserWithPhone(userPhone: String, userPassword: String): UUID {
+        val userId = UUID.randomUUID()
         transaction {
             UserModel.insert {
-                it[id] = UUID.randomUUID()
+                it[id] = userId
                 it[password] = passwordHasher.hash(userPassword)
                 it[telephone] = userPhone
             }
         }
+        return userId
     }
 
     fun getFullUser(userId: UUID): User? {

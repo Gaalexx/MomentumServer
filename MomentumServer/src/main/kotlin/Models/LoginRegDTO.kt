@@ -22,6 +22,7 @@ data class RegisterUserRequestDTO(
     val email: String?,
     val phone: String?,
     val password: String,
+    val deviceInfo: String
 )
 
 @Serializable
@@ -36,6 +37,7 @@ data class LoginUserRequestDTO(
     val phone: String?,
     val email: String?,
     val password: String,
+    val deviceInfo: String
 )
 
 @Serializable
