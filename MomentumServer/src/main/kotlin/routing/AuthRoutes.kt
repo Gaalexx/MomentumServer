@@ -208,17 +208,14 @@ fun Route.authRoutes(jwtService: JwtService) {
     post("/login"){
         val body = call.receive<LoginUserRequestDTO>()
         val token: String?
-        println("login 1")
         if (body.email == null && body.phone == null) {
-            call.respond(HttpStatusCode.BadRequest)
-            println("login 2")
+            call.respond(HttpStatusCode.BadRequest, LoginResponseDTO(null))
             return@post
         }
         else if (body.phone == null && body.email != null) {
             val id = UserModel.getIdByEmail(body.email)
             if(id == null){
-                call.respond(HttpStatusCode.BadRequest)
-                println("login 3")
+                call.respond(HttpStatusCode.BadRequest, LoginResponseDTO(null))
                 return@post
             }
             else{
@@ -236,7 +233,7 @@ fun Route.authRoutes(jwtService: JwtService) {
         else if(body.phone != null && body.email == null) {
             val id = UserModel.getIdByPhone(body.phone)
             if(id == null){
-                call.respond(HttpStatusCode.BadRequest)
+                call.respond(HttpStatusCode.BadRequest, LoginResponseDTO(null))
                 return@post
             }
             else{
@@ -250,7 +247,7 @@ fun Route.authRoutes(jwtService: JwtService) {
             }
         }
         else {
-            call.respond(HttpStatusCode.BadRequest)
+            call.respond(HttpStatusCode.BadRequest, LoginResponseDTO(null))
             return@post
         }
 
