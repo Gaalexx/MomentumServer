@@ -3,6 +3,8 @@ package com.example.routing
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
+import com.example.Models.CheckCodeLoginRequestDTO
+import com.example.Models.CheckCodeLoginResponseDTO
 import com.example.Models.CheckCodeRequestDTO
 import com.example.Models.CheckEmailRequestDTO
 import com.example.Models.CheckPhoneNumberRequestDTO
@@ -50,53 +52,6 @@ fun Route.authRoutes(jwtService: JwtService) {
     val jwtDomain = jwtConfig.property("domain").getString()
     val jwtRealm = jwtConfig.property("realm").getString()
     val jwtSecret = jwtConfig.property("secret").getString()
-
-    // new test endpoint: send code
-    // example request: curl -X POST http://localhost/api/momentum/send-test-code -H "Content-Type: application/json" -d "{\"email\":\"test@example.com\"}"
-    post("/send-test-code") {
-        try {
-            val request = call.receive<SendCodeRequestDTO>()
-
-            val code = (100000..999999).random().toString()
-            CodeStorage.saveCode(request.email, code)
-
-            val sendResult = EmailSender.sendVerificationCode(
-                recipientEmail = request.email,
-                code = code
-            )
-
-            sendResult.onSuccess {
-                // only for testing: return code
-                call.respond(
-                    HttpStatusCode.OK,
-                    SendCodeResponseDTO(
-                        success = true,
-                        message = "Code sent successfully to ${request.email}",
-                        code = code
-                    )
-                )
-            }.onFailure { error ->
-                call.respond(
-                    HttpStatusCode.InternalServerError,
-                    SendCodeResponseDTO(
-                        success = false,
-                        message = "Failed to send email: ${error.message}",
-                        code = null
-                    )
-                )
-            }
-
-        } catch (e: Exception) {
-            call.respond(
-                HttpStatusCode.BadRequest,
-                SendCodeResponseDTO(
-                    success = false,
-                    message = "Invalid request: ${e.message}",
-                    code = null
-                )
-            )
-        }
-    }
 
     post("/auth"){
         val body = call.receive<GetJWTDTO>()
@@ -203,6 +158,41 @@ fun Route.authRoutes(jwtService: JwtService) {
             }
         }
         call.respond(HttpStatusCode.OK, CheckResponseDTO(true))
+    }
+
+    post("/check-login-code"){
+        val body = call.receive<CheckCodeLoginRequestDTO>()
+
+        if(body.email != null){
+            val id = UserModel.getIdByEmail(body.email)
+            val token = RefreshTokenGenerator.generate()
+
+
+            val isValid = CodeStorage.verifyCode(body.email, body.code)
+            if(isValid && id != null){
+                SessionTable.addNewSession(id, token, body.deviceInfo)
+                call.respond(HttpStatusCode.OK, CheckCodeLoginResponseDTO(true, token))
+            }
+            else{
+                call.respond(HttpStatusCode.OK, CheckCodeLoginResponseDTO(false))
+            }
+            return@post
+        }
+        else if(body.phone != null){ //TODO дописать логику для телефона
+            val id = UserModel.getIdByPhone(body.phone)
+            val token = RefreshTokenGenerator.generate()
+
+            val isValid = CodeStorage.verifyCode(body.phone, body.code)
+            if(isValid){
+                call.respond(HttpStatusCode.OK, CheckCodeLoginResponseDTO(true, token))
+            }
+            else{
+                call.respond(HttpStatusCode.OK, CheckCodeLoginResponseDTO(false))
+            }
+            return@post
+        }
+        call.respond(HttpStatusCode.OK, CheckCodeLoginResponseDTO(false))
+
     }
 
     post("/login"){

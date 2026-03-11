@@ -18,6 +18,12 @@ data class CheckResponseDTO(
 )
 
 @Serializable
+data class CheckCodeLoginResponseDTO(
+    val isSuccess: Boolean,
+    val token: String? = null,
+)
+
+@Serializable
 data class RegisterUserRequestDTO(
     val email: String?,
     val phone: String?,
@@ -30,6 +36,14 @@ data class CheckCodeRequestDTO(
     val email: String?,
     val phone: String?,
     val code: String,
+)
+
+@Serializable
+data class CheckCodeLoginRequestDTO(
+    val email: String?,
+    val phone: String?,
+    val code: String,
+    val deviceInfo: String
 )
 
 @Serializable
