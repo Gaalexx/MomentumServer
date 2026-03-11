@@ -41,6 +41,7 @@ object SessionTable : Table("sessions") {
                 it[this.userId] = userId
                 it[refreshTokenHash] = tokenHasher.hash(token)
                 it[this.deviceInfo] = deviceInfo
+
                 // TODO подумать, что во время положить
             }
         }
