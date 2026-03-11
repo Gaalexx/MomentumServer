@@ -3,30 +3,27 @@ package com.example.routing
 
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
+import com.example.Models.CheckCodeLoginRequestDTO
+import com.example.Models.CheckCodeLoginResponseDTO
 import com.example.Models.CheckCodeRequestDTO
 import com.example.Models.CheckEmailRequestDTO
 import com.example.Models.CheckPhoneNumberRequestDTO
 import com.example.Models.CheckResponseDTO
+import com.example.Models.GetJWTDTO
 import com.example.Models.LoginResponseDTO
 import com.example.Models.LoginUserRequestDTO
 import com.example.Models.RegisterUserRequestDTO
 import com.example.data.codestorage.CodeStorage
 import com.example.data.emailsender.EmailSender
+import com.example.database.SessionTable
 import com.example.database.UserModel
+import com.example.tokens.JwtService
+import com.example.tokens.RefreshTokenGenerator
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
-
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlin.random.Random
 
 @Serializable
 data class UserInfo(
@@ -49,57 +46,27 @@ data class SendCodeResponseDTO(
 
 
 
-fun Route.authRoutes() {
+fun Route.authRoutes(jwtService: JwtService) {
     val jwtConfig = environment.config.config("jwt")
     val jwtAudience = jwtConfig.property("audience").getString()
     val jwtDomain = jwtConfig.property("domain").getString()
     val jwtRealm = jwtConfig.property("realm").getString()
     val jwtSecret = jwtConfig.property("secret").getString()
 
-    // new test endpoint: send code
-    // example request: curl -X POST http://localhost/api/momentum/send-test-code -H "Content-Type: application/json" -d "{\"email\":\"test@example.com\"}"
-    post("/send-test-code") {
-        try {
-            val request = call.receive<SendCodeRequestDTO>()
-
-            val code = (100000..999999).random().toString()
-            CodeStorage.saveCode(request.email, code)
-
-            val sendResult = EmailSender.sendVerificationCode(
-                recipientEmail = request.email,
-                code = code
-            )
-
-            sendResult.onSuccess {
-                // only for testing: return code
-                call.respond(
-                    HttpStatusCode.OK,
-                    SendCodeResponseDTO(
-                        success = true,
-                        message = "Code sent successfully to ${request.email}",
-                        code = code
-                    )
-                )
-            }.onFailure { error ->
-                call.respond(
-                    HttpStatusCode.InternalServerError,
-                    SendCodeResponseDTO(
-                        success = false,
-                        message = "Failed to send email: ${error.message}",
-                        code = null
-                    )
-                )
+    post("/auth"){
+        val body = call.receive<GetJWTDTO>()
+        if(body.token != null){
+            val tokenInfo = SessionTable.getSessionInfo(body.token)
+            if(tokenInfo != null){
+                val tokenToSend = jwtService.createAccessToken(tokenInfo.userId.toString(), tokenInfo.sessionId.toString())
+                call.respond(HttpStatusCode.OK, GetJWTDTO(tokenToSend))
             }
-
-        } catch (e: Exception) {
-            call.respond(
-                HttpStatusCode.BadRequest,
-                SendCodeResponseDTO(
-                    success = false,
-                    message = "Invalid request: ${e.message}",
-                    code = null
-                )
-            )
+            else{
+                call.respond(HttpStatusCode.OK, GetJWTDTO(null))
+            }
+        }
+        else{
+            call.respond(HttpStatusCode.BadRequest, GetJWTDTO(null))
         }
     }
 
@@ -193,26 +160,58 @@ fun Route.authRoutes() {
         call.respond(HttpStatusCode.OK, CheckResponseDTO(true))
     }
 
+    post("/check-login-code"){
+        val body = call.receive<CheckCodeLoginRequestDTO>()
+
+        if(body.email != null){
+            val id = UserModel.getIdByEmail(body.email)
+            val token = RefreshTokenGenerator.generate()
+
+
+            val isValid = CodeStorage.verifyCode(body.email, body.code)
+            if(isValid && id != null){
+                SessionTable.addNewSession(id, token, body.deviceInfo)
+                call.respond(HttpStatusCode.OK, CheckCodeLoginResponseDTO(true, token))
+            }
+            else{
+                call.respond(HttpStatusCode.OK, CheckCodeLoginResponseDTO(false))
+            }
+            return@post
+        }
+        else if(body.phone != null){ //TODO дописать логику для телефона
+            val id = UserModel.getIdByPhone(body.phone)
+            val token = RefreshTokenGenerator.generate()
+
+            val isValid = CodeStorage.verifyCode(body.phone, body.code)
+            if(isValid){
+                call.respond(HttpStatusCode.OK, CheckCodeLoginResponseDTO(true, token))
+            }
+            else{
+                call.respond(HttpStatusCode.OK, CheckCodeLoginResponseDTO(false))
+            }
+            return@post
+        }
+        call.respond(HttpStatusCode.OK, CheckCodeLoginResponseDTO(false))
+
+    }
+
     post("/login"){
         val body = call.receive<LoginUserRequestDTO>()
         val token: String?
         if (body.email == null && body.phone == null) {
-            call.respond(HttpStatusCode.BadRequest)
+            call.respond(HttpStatusCode.BadRequest, LoginResponseDTO(null))
             return@post
         }
         else if (body.phone == null && body.email != null) {
             val id = UserModel.getIdByEmail(body.email)
             if(id == null){
-                call.respond(HttpStatusCode.BadRequest)
+                call.respond(HttpStatusCode.BadRequest, LoginResponseDTO(null))
                 return@post
             }
             else{
                 if (UserModel.passwordIsValid(id, body.password)){
-                    token = JWT.create()
-                        .withIssuer(jwtDomain)
-                        .withAudience(jwtAudience)
-                        .withClaim("email", body.email)
-                        .sign(Algorithm.HMAC256(jwtSecret))
+                    token = RefreshTokenGenerator.generate()
+                    SessionTable.addNewSession(id, token, body.deviceInfo)
                 }
                 else{
                     token = null
@@ -224,16 +223,13 @@ fun Route.authRoutes() {
         else if(body.phone != null && body.email == null) {
             val id = UserModel.getIdByPhone(body.phone)
             if(id == null){
-                call.respond(HttpStatusCode.BadRequest)
+                call.respond(HttpStatusCode.BadRequest, LoginResponseDTO(null))
                 return@post
             }
             else{
                 if (UserModel.passwordIsValid(id, body.password)){
-                    token = JWT.create()
-                        .withIssuer(jwtDomain)
-                        .withAudience(jwtAudience)
-                        .withClaim("phone", body.phone)
-                        .sign(Algorithm.HMAC256(jwtSecret))
+                    token = RefreshTokenGenerator.generate()
+                    SessionTable.addNewSession(id, token, body.deviceInfo)
                 }
                 else{
                     token = null
@@ -241,7 +237,7 @@ fun Route.authRoutes() {
             }
         }
         else {
-            call.respond(HttpStatusCode.BadRequest)
+            call.respond(HttpStatusCode.BadRequest, LoginResponseDTO(null))
             return@post
         }
 
@@ -256,22 +252,16 @@ fun Route.authRoutes() {
             return@post
         }
         else if (body.phone == null && body.email != null){
-            token = JWT.create()
-                .withIssuer(jwtDomain)
-                .withAudience(jwtAudience)
-                .withClaim("email", body.email)
-                .sign(Algorithm.HMAC256(jwtSecret))
+            token = RefreshTokenGenerator.generate()
 
-            UserModel.registerNewUserWithEmail(body.email, body.password)
+            val uid = UserModel.registerNewUserWithEmail(body.email, body.password)
+            SessionTable.addNewSession(uid, token, body.deviceInfo)
         }
         else if (body.email == null && body.phone != null) {
-            token = JWT.create()
-                .withIssuer(jwtDomain)
-                .withAudience(jwtAudience)
-                .withClaim("phone", body.phone)
-                .sign(Algorithm.HMAC256(jwtSecret))
+            token = RefreshTokenGenerator.generate()
 
-            UserModel.registerNewUserWithPhone(body.phone, body.password)
+            val uid = UserModel.registerNewUserWithPhone(body.phone, body.password)
+            SessionTable.addNewSession(uid, token, body.deviceInfo)
         }
         else{
             call.respond(HttpStatusCode.BadRequest)
