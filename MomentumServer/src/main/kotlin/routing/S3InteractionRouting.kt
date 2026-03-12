@@ -81,26 +81,31 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO все это надо об�
 
             call.respond(HttpStatusCode.OK)
         }
-    }
 
+        post("/get-my-media") {
 
-    post("/get-my-media") {
-        val userId = UUID.fromString("4a3416a6-597a-431c-bf95-43ee749f82c6") // TODO из jwt
+            val principal = call.principal<JWTPrincipal>() ?: return@post call.respond(HttpStatusCode.Unauthorized)
 
-        val listOfPosts = PostsTable.getPostsOfUser(userId)
-        listOfPosts.forEach {
-            println(it.title)
-        }
-        val listToSend: MutableList<PostDTO> = mutableListOf()
-        listOfPosts.forEach { it ->
-            val media = MediaTable.getObjectKeyOfPost(it.id)
-            if(media != null){
-                val presignedURL = S3Client.getPresignedObjectUrl(media)
-                listToSend.add(PostDTO(it.id.toString(), it.userId.toString(), it.title, it.inUse, presignedURL, it.createdAt))
+            val userId = UUID.fromString(principal.subject)
+
+            val listOfPosts = PostsTable.getPostsOfUser(userId)
+            listOfPosts.forEach {
+                println(it.title)
             }
-        }
+            val listToSend: MutableList<PostDTO> = mutableListOf()
+            listOfPosts.forEach { it ->
+                val media = MediaTable.getObjectKeyOfPost(it.id)
+                if(media != null){
+                    val presignedURL = S3Client.getPresignedObjectUrl(media)
+                    listToSend.add(PostDTO(it.id.toString(), it.userId.toString(), it.title, it.inUse, presignedURL, it.createdAt))
+                }
+            }
 
-        call.respond(listToSend)
+            call.respond(listToSend)
+        }
     }
+
+
+
 
 }
