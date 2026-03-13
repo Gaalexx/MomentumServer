@@ -77,11 +77,12 @@ object MediaTable : Table(name = "media") {
         }
     }
 
-    fun getObjectKeyOfPost(postId: UUID): String = transaction {
+    fun getObjectKeyOfPost(postId: UUID): String? = transaction {
             MediaTable
                 .select(MediaTable.objectKey)
                 .where { MediaTable.postId eq postId }
-                .single()[MediaTable.objectKey]
+                .map{it[MediaTable.objectKey]}
+                .singleOrNull()
         }
 
 }
