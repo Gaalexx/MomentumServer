@@ -27,7 +27,7 @@ fun Route.accountRoutes(jwtService: JwtService) {
                     call.respond(HttpStatusCode.OK, AccountInformationDTO(user.email, null)) // TODO обавить логику с урлом аватарки
                 }
                 else{
-                    call.respond(HttpStatusCode.OK, AccountInformationDTO(user.username, "https://sun9-76.userapi.com/s/v1/ig2/T0jKQCt5-3MxyNEyM6x7KFiUPXQWMGizwTyRaKG_7stdeC0EWdqe0Wbw1ZyCFH1f119tma3KCcGorrpBQsciUT1Z.jpg?quality=95&as=32x43,48x64,72x96,108x144,160x213,240x320,360x480,480x640,540x720,640x853,720x960,1080x1440,1280x1707,1440x1920,1920x2560&from=bu&cs=1920x0")) // TODO обавить логику с урлом аватарки
+                    call.respond(HttpStatusCode.OK, AccountInformationDTO(user.username, null)) // TODO обавить логику с урлом аватарки
                 }
             }
             else{
