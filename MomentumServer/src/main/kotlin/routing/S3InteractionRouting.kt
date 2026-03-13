@@ -24,7 +24,7 @@ import org.jetbrains.exposed.sql.selectAll
 import java.time.Duration
 import java.util.UUID
 
-fun Route.s3Routes(jwtService: JwtService){ // TODO все это надо обернуть в authorize в конечном итоге + доделать удаление FAILED ссылок из медиа
+fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удаление FAILED ссылок из медиа
 
     authenticate("jwt"){
         post("/upload") {
