@@ -123,6 +123,16 @@ object UserModel : Table("users") {
         }
     }
 
+    fun updateFullUser(userId: UUID, login: String?, email: String?, phoneNumber: String?) {
+        transaction {
+            UserModel.update({ UserModel.id eq userId }) {
+                if (login != null) it[this.username] = login
+                if (email != null) it[this.email] = email
+                if (phoneNumber != null) it[this.telephone] = phoneNumber
+            }
+        }
+    }
+
     fun updateTelephoneNumber(userId: UUID, newPhoneNumber: String) {
         transaction {
             UserModel.update({ UserModel.id eq userId }) {
