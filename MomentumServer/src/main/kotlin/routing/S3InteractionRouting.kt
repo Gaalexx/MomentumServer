@@ -61,12 +61,11 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
             val body = call.receive<S3UpdateStatusDTO>()
 
             val userId = UUID.fromString(principal.subject)
-            println(userId.toString())
             val mediaId = UUID.fromString(body.mediaId)
             val postId = UUID.randomUUID()
 
             val post: PostModel? = when(body.status){
-                UploadingStatus.READY -> PostModel(postId, userId, body.title ?: "", true)
+                UploadingStatus.READY -> PostModel(postId, userId, body.title ?: "", true, createdAt = null, mediaId)
                 UploadingStatus.UPLOADING -> null // TODO продумать эти случаи
                 UploadingStatus.FAILED -> null
             }
@@ -76,7 +75,6 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
             }
             else{
                 PostsTable.insertNewPost(post)
-                MediaTable.addPostId(mediaId, postId)
             }
 
             call.respond(HttpStatusCode.OK)
@@ -89,12 +87,10 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
             val userId = UUID.fromString(principal.subject)
 
             val listOfPosts = PostsTable.getPostsOfUser(userId)
-            listOfPosts.forEach {
-                println(it.title)
-            }
+
             val listToSend: MutableList<PostDTO> = mutableListOf()
             listOfPosts.forEach { it ->
-                val media = MediaTable.getObjectKeyOfPost(it.id)
+                val media = MediaTable.getObjectKeyOfPost(it.mediaId)
                 if(media != null){
                     val presignedURL = S3Client.getPresignedObjectUrl(media)
                     listToSend.add(PostDTO(it.id.toString(), it.userId.toString(), it.title, it.inUse, presignedURL, it.createdAt))

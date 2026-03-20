@@ -1,0 +1,1 @@
+ALTER TABLE IF EXISTS public.media DROP COLUMN IF EXISTS post_id;

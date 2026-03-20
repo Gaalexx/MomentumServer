@@ -30,13 +30,11 @@ data class MediaModel(
     val objectKey: String,
     val sizeBytes: Long,
     val duration: Long? = null,
-    val postId: UUID? = null,
 )
 
 object MediaTable : Table(name = "media") {
     private val id = uuid("id")
     private val userId = uuid("user_id")
-    private val postId = uuid("post_id").nullable()
     private val mediaType = varchar("media_type", length = 16)
     private val mimeType = varchar("mime_type", length = 150)
     private val status = varchar("status", length = 20).default("UPLOADING")
@@ -69,18 +67,10 @@ object MediaTable : Table(name = "media") {
         }
     }
 
-    fun addPostId(mediaId: UUID, postId: UUID) {
-        transaction {
-            MediaTable.update({ MediaTable.id eq mediaId}) {
-                it[this.postId] = postId
-            }
-        }
-    }
-
-    fun getObjectKeyOfPost(postId: UUID): String? = transaction {
+    fun getObjectKeyOfPost(mediaId: UUID): String? = transaction {
             MediaTable
                 .select(MediaTable.objectKey)
-                .where { MediaTable.postId eq postId }
+                .where { MediaTable.id eq mediaId }
                 .map{it[MediaTable.objectKey]}
                 .singleOrNull()
         }
