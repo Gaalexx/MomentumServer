@@ -19,11 +19,11 @@ import org.jetbrains.exposed.sql.ResultRow
 
 data class User(
     val id: UUID,
-    val username: String,
+    val username: String?,
     val password: String,
     val email: String,
     val registerDate: LocalDateTime,
-    val phoneNumber: String,
+    val phoneNumber: String?,
     val hasPremium: Boolean,
 )
 
@@ -32,9 +32,9 @@ object UserModel : Table("users") {
     private val password = varchar("password", 300)
     private val hasPremium = bool("has_premium").default(false)
     private val registered_at = datetime("registered_at").default(LocalDateTime.now())
-    private val telephone = varchar("telephone", 20)
+    private val telephone = varchar("telephone", 20).nullable()
     private val email = varchar("email", 255)
-    private val username = varchar("username", 50)
+    private val username = varchar("username", 50).nullable()
     override val primaryKey = PrimaryKey(UserModel.id)
 
 
@@ -143,6 +143,16 @@ object UserModel : Table("users") {
         transaction {
             UserModel.update({ UserModel.id eq userId }) {
                 it[hasPremium] = premium
+            }
+        }
+    }
+
+    fun updateFullUser(userId: UUID, login: String?, email: String?, phoneNumber: String?) {
+        transaction {
+            UserModel.update({ UserModel.id eq userId }) {
+                if (login != null) it[this.username] = login
+                if (email != null) it[this.email] = email
+                if (phoneNumber != null) it[this.telephone] = phoneNumber
             }
         }
     }

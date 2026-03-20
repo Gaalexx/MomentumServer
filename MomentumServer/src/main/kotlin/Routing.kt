@@ -3,6 +3,7 @@ package com.example
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.codahale.metrics.*
+import com.example.routing.accountRoutes
 import com.example.routing.authRoutes
 import com.example.routing.friendsRoutes
 import com.example.routing.s3Routes
@@ -45,6 +46,7 @@ fun Application.configureRouting(jwtService: JwtService) {
             route("/momentum"){
                 authRoutes(jwtService)
                 s3Routes(jwtService)
+                accountRoutes(jwtService)
                 get("/hello") {
                     call.respond(Respond("Hello World!"))
                 }
