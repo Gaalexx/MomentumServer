@@ -13,6 +13,11 @@ data class CheckPhoneNumberRequestDTO(
 )
 
 @Serializable
+data class CheckUsernameRequestDTO(
+    val username: String,
+)
+
+@Serializable
 data class CheckResponseDTO(
     val isSuccess: Boolean,
 )
