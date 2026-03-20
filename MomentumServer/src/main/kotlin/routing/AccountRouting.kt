@@ -2,20 +2,18 @@ package com.example.routing
 
 import com.example.Models.AccountInformationDTO
 import com.example.Models.CheckResponseDTO
-import com.example.Models.CheckUsernameRequestDTO
+import com.example.Models.CheckUserInfoIsFreeRequestDTO
+import com.example.Models.CheckUserInfoIsFreeResponseDTO
 import com.example.Models.EditAccountDTO
 import com.example.database.UserModel
 import com.example.tokens.JwtService
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.auth.UserIdPrincipal
-import io.ktor.server.auth.authenticate
-import io.ktor.server.auth.jwt.JWTPrincipal
-import io.ktor.server.auth.principal
-import io.ktor.server.request.receive
-import io.ktor.server.response.respond
-import io.ktor.server.routing.Route
-import io.ktor.server.routing.post
-import java.util.UUID
+import io.ktor.http.*
+import io.ktor.server.auth.*
+import io.ktor.server.auth.jwt.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
+import java.util.*
 
 fun Route.accountRoutes(jwtService: JwtService) {
 
@@ -54,16 +52,32 @@ fun Route.accountRoutes(jwtService: JwtService) {
             }
         }
 
-        post("/check-username") {
-            val body = call.receive<CheckUsernameRequestDTO>()
+        post("/check-userinfo-is-free") {
+            val userinfo = call.receive<CheckUserInfoIsFreeRequestDTO>()
+            var isUsernameFree: Boolean? = null
+            var isEmailFree: Boolean? = null
+            var isPhoneFree: Boolean? = null
 
-            val id = UserModel.getIdByUserName(body.username)
-            if(id == null) {
-                call.respond(HttpStatusCode.OK, CheckResponseDTO(false))
+            if (userinfo.username != null) {
+                val id = UserModel.getIdByUserName(userinfo.username)
+                isUsernameFree = id == null
             }
-            else{
-                call.respond(HttpStatusCode.OK, CheckResponseDTO(true))
+            if (userinfo.email != null) {
+                val id = UserModel.getIdByEmail(userinfo.email)
+                isEmailFree = id == null
             }
+            if (userinfo.phone != null) {
+                val id = UserModel.getIdByPhone(userinfo.phone)
+                isPhoneFree = id == null
+            }
+            call.respond(
+                HttpStatusCode.OK,
+                CheckUserInfoIsFreeResponseDTO(
+                    isUsernameFree = isUsernameFree,
+                    isEmailFree = isEmailFree,
+                    isPhoneFree = isPhoneFree
+                )
+            )
         }
     }
 
