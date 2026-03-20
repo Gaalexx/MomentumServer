@@ -26,7 +26,7 @@ object PostsTable : Table("posts") {
     private val createdAt = timestampWithTimeZone("created_at")
     private val text = varchar("text", 120).nullable()
     private val inUse = bool("in_use").default(true)
-    private val mediaId = uuid("mediaId")
+    private val mediaId = uuid("media_id")
 
     override val primaryKey = PrimaryKey(id)
 

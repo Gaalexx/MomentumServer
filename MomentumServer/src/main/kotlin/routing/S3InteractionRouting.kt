@@ -88,8 +88,6 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
 
             val listOfPosts = PostsTable.getPostsOfUser(userId)
 
-            listOfPosts.forEach { post -> println(post.title) }
-
             val listToSend: MutableList<PostDTO> = mutableListOf()
             listOfPosts.forEach { it ->
                 val media = MediaTable.getObjectKeyOfPost(it.mediaId)
