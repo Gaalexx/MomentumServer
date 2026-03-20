@@ -13,6 +13,7 @@ import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.update
 import java.time.LocalDateTime
 import org.mindrot.jbcrypt.BCrypt
+import org.jetbrains.exposed.sql.ResultRow
 
 
 
@@ -39,6 +40,15 @@ object UserModel : Table("users") {
 
     private val passwordHasher = PasswordHasher()
 
+    fun findIdByEmail(email: String): UUID? {
+        return transaction {
+            UserModel
+                .selectAll()
+                .where { UserModel.email eq email }
+                .map { it[UserModel.id] }
+                .singleOrNull()
+        }
+    }
 
     fun registerNewUserWithEmail(userEmail: String, userPassword: String): UUID {
         val userId = UUID.randomUUID()
@@ -62,6 +72,20 @@ object UserModel : Table("users") {
             }
         }
         return userId
+    }
+
+    fun getUsername(userId: UUID): String? {
+        return transaction {
+            UserModel
+                .selectAll()
+                .where { UserModel.id eq userId }
+                .map { it[UserModel.username] }
+                .singleOrNull()
+        }
+    }
+
+    fun extractUsername(row: ResultRow): String {
+        return row[username]
     }
 
     fun getFullUser(userId: UUID): User? {

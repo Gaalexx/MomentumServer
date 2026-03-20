@@ -5,6 +5,7 @@ import com.auth0.jwt.algorithms.Algorithm
 import com.codahale.metrics.*
 import com.example.routing.accountRoutes
 import com.example.routing.authRoutes
+import com.example.routing.friendsRoutes
 import com.example.routing.s3Routes
 import com.example.s3Client.MinioStorage
 import com.example.s3Client.testMinioUpload
@@ -27,6 +28,7 @@ import kotlinx.serialization.Serializable
 import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 import org.slf4j.event.*
+
 
 @Serializable
 data class Respond(
@@ -54,6 +56,7 @@ fun Application.configureRouting(jwtService: JwtService) {
                 get("/"){
                     call.respond("Hello Momentum!")
                 }
+                friendsRoutes(jwtService)
             }
         }
         get("/"){

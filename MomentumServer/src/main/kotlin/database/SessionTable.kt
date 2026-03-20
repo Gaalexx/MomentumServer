@@ -9,6 +9,9 @@ import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.util.UUID
 
+import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 
 data class SessionInfo(
     val userId: UUID,
@@ -62,6 +65,20 @@ object SessionTable : Table("sessions") {
                 .singleOrNull()
         }
         return session
+    }
+
+    fun deleteSession(refreshToken: String): Boolean = transaction {
+        val hashed = tokenHasher.hash(refreshToken)
+        val deletedRows = SessionTable.deleteWhere {
+            SessionTable.refreshTokenHash eq hashed
+        }
+        deletedRows > 0
+    }
+
+    fun deleteAllUserSessions(userId: UUID): Int = transaction {
+        SessionTable.deleteWhere {
+            SessionTable.userId eq userId
+        }
     }
 
 }
