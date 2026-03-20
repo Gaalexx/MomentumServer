@@ -1,25 +1,14 @@
 package com.example.routing
 
-import com.auth0.jwt.JWT
-import com.auth0.jwt.algorithms.Algorithm
-import com.example.Models.CheckCodeLoginRequestDTO
-import com.example.Models.CheckCodeLoginResponseDTO
-import com.example.Models.CheckCodeRequestDTO
-import com.example.Models.CheckEmailRequestDTO
-import com.example.Models.CheckPhoneNumberRequestDTO
-import com.example.Models.CheckResponseDTO
-import com.example.Models.CheckUsernameRequestDTO
-import com.example.Models.GetJWTDTO
-import com.example.Models.LoginResponseDTO
-import com.example.Models.LoginUserRequestDTO
-import com.example.Models.RegisterUserRequestDTO
+
+import com.example.Models.*
 import com.example.data.codestorage.CodeStorage
 import com.example.data.emailsender.EmailSender
 import com.example.database.SessionTable
 import com.example.database.UserModel
 import com.example.tokens.JwtService
 import com.example.tokens.RefreshTokenGenerator
-import io.ktor.http.HttpStatusCode
+import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -142,18 +131,6 @@ fun Route.authRoutes(jwtService: JwtService) {
         // то же самое и с телефоном
 
         call.respond(HttpStatusCode.OK, CheckResponseDTO(true))
-    }
-
-    post("/check-username") {
-        val body = call.receive<CheckUsernameRequestDTO>()
-
-        val id = UserModel.getIdByUserName(body.username)
-        if(id == null) {
-            call.respond(HttpStatusCode.OK, CheckResponseDTO(false))
-        }
-        else{
-            call.respond(HttpStatusCode.OK, CheckResponseDTO(true))
-        }
     }
 
     post("/check-code") {

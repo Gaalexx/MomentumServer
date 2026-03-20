@@ -2,6 +2,7 @@ package com.example.Models
 
 import kotlinx.serialization.Serializable
 
+// Request DTO
 @Serializable
 data class CheckEmailRequestDTO(
     val email: String,
@@ -13,19 +14,10 @@ data class CheckPhoneNumberRequestDTO(
 )
 
 @Serializable
-data class CheckUsernameRequestDTO(
-    val username: String,
-)
-
-@Serializable
-data class CheckResponseDTO(
-    val isSuccess: Boolean,
-)
-
-@Serializable
-data class CheckCodeLoginResponseDTO(
-    val isSuccess: Boolean,
-    val token: String? = null,
+data class CheckUserInfoIsFreeRequestDTO(
+    val username: String?,
+    val email: String?,
+    val phone: String?,
 )
 
 @Serializable
@@ -60,11 +52,29 @@ data class LoginUserRequestDTO(
 )
 
 @Serializable
-data class LoginResponseDTO(
-    val jwt: String?,
+data class GetJWTDTO(
+    val token: String?,
+)
+// Response DTO
+@Serializable
+data class CheckResponseDTO(
+    val isSuccess: Boolean,
 )
 
 @Serializable
-data class GetJWTDTO(
-    val token: String?,
+data class CheckCodeLoginResponseDTO(
+    val isSuccess: Boolean,
+    val token: String? = null,
+)
+
+@Serializable
+data class CheckUserInfoIsFreeResponseDTO(
+    val isUsernameFree: Boolean?,
+    val isEmailFree: Boolean?,
+    val isPhoneFree: Boolean?,
+)
+
+@Serializable
+data class LoginResponseDTO(
+    val jwt: String?,
 )
