@@ -115,6 +115,16 @@ object UserModel : Table("users") {
         }
     }
 
+    fun getIdByUserName(username: String): UUID? {
+        return transaction {
+            UserModel
+                .selectAll()
+                .where { UserModel.username eq username }
+                .map { it[UserModel.id] }
+                .singleOrNull()
+        }
+    }
+
     fun updatePremium(userId: UUID, premium: Boolean) {
         transaction {
             UserModel.update({ UserModel.id eq userId }) {

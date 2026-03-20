@@ -9,6 +9,7 @@ import com.example.Models.CheckCodeRequestDTO
 import com.example.Models.CheckEmailRequestDTO
 import com.example.Models.CheckPhoneNumberRequestDTO
 import com.example.Models.CheckResponseDTO
+import com.example.Models.CheckUsernameRequestDTO
 import com.example.Models.GetJWTDTO
 import com.example.Models.LoginResponseDTO
 import com.example.Models.LoginUserRequestDTO
@@ -124,7 +125,7 @@ fun Route.authRoutes(jwtService: JwtService) {
     post("/check-telephone") {
         val body = call.receive<CheckPhoneNumberRequestDTO>()
 
-        val id = UserModel.getIdByEmail(body.phone)
+        val id = UserModel.getIdByPhone(body.phone)
         if(id == null) {
             // TODO отправка СМС на телефон
         }
@@ -134,6 +135,18 @@ fun Route.authRoutes(jwtService: JwtService) {
         // то же самое и с телефоном
 
         call.respond(HttpStatusCode.OK, CheckResponseDTO(true))
+    }
+
+    post("/check-username") {
+        val body = call.receive<CheckUsernameRequestDTO>()
+
+        val id = UserModel.getIdByUserName(body.username)
+        if(id == null) {
+            call.respond(HttpStatusCode.OK, CheckResponseDTO(false))
+        }
+        else{
+            call.respond(HttpStatusCode.OK, CheckResponseDTO(true))
+        }
     }
 
     post("/check-code") {
