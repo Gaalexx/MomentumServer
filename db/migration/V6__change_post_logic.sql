@@ -13,5 +13,3 @@ DROP CONSTRAINT IF EXISTS media_id_fk;
 ALTER TABLE posts
     ADD CONSTRAINT media_id_fk
         FOREIGN KEY (media_id) REFERENCES media(id);
-
-ALTER TABLE IF EXISTS public.media DROP COLUMN IF EXISTS post_id;
