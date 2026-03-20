@@ -15,7 +15,8 @@ data class PostModel(
     val userId: UUID,
     val title: String,
     val inUse: Boolean,
-    val createdAt: String? = null
+    val createdAt: String? = null,
+    val mediaId: UUID
 )
 
 object PostsTable : Table("posts") {
@@ -25,6 +26,7 @@ object PostsTable : Table("posts") {
     private val createdAt = timestampWithTimeZone("created_at")
     private val text = varchar("text", 120).nullable()
     private val inUse = bool("in_use").default(true)
+    private val mediaId = uuid("mediaId")
 
     override val primaryKey = PrimaryKey(id)
 
@@ -35,6 +37,7 @@ object PostsTable : Table("posts") {
                 it[userId] = postModel.userId
                 it[text] = postModel.title
                 it[inUse] = postModel.inUse
+                it[mediaId] = postModel.mediaId
             }
         }
     }
@@ -42,7 +45,16 @@ object PostsTable : Table("posts") {
     fun getPostsOfUser(userId: UUID): List<PostModel> = transaction {
             PostsTable.selectAll()
                 .where { (PostsTable.userId eq userId) and (PostsTable.inUse eq true) }
-                .map{ row -> PostModel(row[PostsTable.id], row[PostsTable.userId], row[PostsTable.text] ?: "", row[PostsTable.inUse], row[PostsTable.createdAt].toString()) }
+                .map{ row ->
+                    PostModel(
+                        row[PostsTable.id],
+                        row[PostsTable.userId],
+                        row[PostsTable.text] ?: "",
+                        row[PostsTable.inUse],
+                        row[PostsTable.createdAt].toString(),
+                        row[PostsTable.mediaId]
+                    )
+                }
         }
 
 }
