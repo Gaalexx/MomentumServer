@@ -32,8 +32,16 @@ data class SendCodeResponseDTO(
     val code: String? = null
 )
 
+@Serializable
+data class LogoutRequestDTO(
+    val refreshToken: String
+)
 
-
+@Serializable
+data class LogoutResponseDTO(
+    val success: Boolean,
+    val message: String
+)
 
 fun Route.authRoutes(jwtService: JwtService) {
     val jwtConfig = environment.config.config("jwt")
@@ -258,5 +266,30 @@ fun Route.authRoutes(jwtService: JwtService) {
         }
 
         call.respond(HttpStatusCode.OK, LoginResponseDTO(token))
+    }
+
+    post("/logout") {
+        val request = try {
+            call.receive<LogoutRequestDTO>()
+        } catch (e: Exception) {
+            return@post call.respond(
+                HttpStatusCode.BadRequest,
+                LogoutResponseDTO(false, "Invalid request format")
+            )
+        }
+
+        val deleted = SessionTable.deleteSession(request.refreshToken)
+
+        if (deleted) {
+            call.respond(
+                HttpStatusCode.OK,
+                LogoutResponseDTO(true, "Successfully logged out")
+            )
+        } else {
+            call.respond(
+                HttpStatusCode.NotFound,
+                LogoutResponseDTO(false, "Session not found or already expired")
+            )
+        }
     }
 }
