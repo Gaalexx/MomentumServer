@@ -1,6 +1,8 @@
 package com.example.routing
 
 import com.example.Models.AccountInformationDTO
+import com.example.Models.CheckResponseDTO
+import com.example.Models.CheckUsernameRequestDTO
 import com.example.Models.EditAccountDTO
 import com.example.database.UserModel
 import com.example.tokens.JwtService
@@ -49,6 +51,18 @@ fun Route.accountRoutes(jwtService: JwtService) {
             }
             else{
                 call.respond(HttpStatusCode.BadRequest)
+            }
+        }
+
+        post("/check-username") {
+            val body = call.receive<CheckUsernameRequestDTO>()
+
+            val id = UserModel.getIdByUserName(body.username)
+            if(id == null) {
+                call.respond(HttpStatusCode.OK, CheckResponseDTO(false))
+            }
+            else{
+                call.respond(HttpStatusCode.OK, CheckResponseDTO(true))
             }
         }
     }

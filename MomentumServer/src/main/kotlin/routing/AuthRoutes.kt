@@ -137,18 +137,6 @@ fun Route.authRoutes(jwtService: JwtService) {
         call.respond(HttpStatusCode.OK, CheckResponseDTO(true))
     }
 
-    post("/check-username") {
-        val body = call.receive<CheckUsernameRequestDTO>()
-
-        val id = UserModel.getIdByUserName(body.username)
-        if(id == null) {
-            call.respond(HttpStatusCode.OK, CheckResponseDTO(false))
-        }
-        else{
-            call.respond(HttpStatusCode.OK, CheckResponseDTO(true))
-        }
-    }
-
     post("/check-code") {
         val body = call.receive<CheckCodeRequestDTO>()
 
