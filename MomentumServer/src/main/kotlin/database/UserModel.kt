@@ -84,7 +84,7 @@ object UserModel : Table("users") {
         }
     }
 
-    fun extractUsername(row: ResultRow): String {
+    fun extractUsername(row: ResultRow): String? {
         return row[username]
     }
 
