@@ -13,12 +13,6 @@ data class CheckPhoneNumberRequestDTO(
     val phone: String,
 )
 
-@Serializable
-data class CheckUserInfoIsFreeRequestDTO(
-    val username: String?,
-    val email: String?,
-    val phone: String?,
-)
 
 @Serializable
 data class RegisterUserRequestDTO(
@@ -65,13 +59,6 @@ data class CheckResponseDTO(
 data class CheckCodeLoginResponseDTO(
     val isSuccess: Boolean,
     val token: String? = null,
-)
-
-@Serializable
-data class CheckUserInfoIsFreeResponseDTO(
-    val isUsernameFree: Boolean?,
-    val isEmailFree: Boolean?,
-    val isPhoneFree: Boolean?,
 )
 
 @Serializable

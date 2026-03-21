@@ -38,7 +38,6 @@ fun Route.accountRoutes(jwtService: JwtService) {
         }
 
         post("/update-user-info"){
-
             val principal = call.principal<JWTPrincipal>() ?: return@post call.respond(HttpStatusCode.Unauthorized)
             val usedId = UUID.fromString(principal.subject)
 
@@ -46,6 +45,15 @@ fun Route.accountRoutes(jwtService: JwtService) {
             if(user != null){
                 val body = call.receive<EditAccountDTO>()
                 UserModel.updateFullUser(usedId, body.login, body.email, body.phone)
+                call.respond(
+                    HttpStatusCode.OK,
+                    EditAccountDTO(
+                        user.username,
+                        user.email,
+                        user.phoneNumber,
+                        null
+                    )
+                )
             }
             else{
                 call.respond(HttpStatusCode.BadRequest)
