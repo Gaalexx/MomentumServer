@@ -30,6 +30,16 @@ import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.util.*
 
+private fun compareUuidAsPostgres(a: UUID, b: UUID): Int {
+    val msbCompare = java.lang.Long.compareUnsigned(a.mostSignificantBits, b.mostSignificantBits)
+    if (msbCompare != 0) return msbCompare
+    return java.lang.Long.compareUnsigned(a.leastSignificantBits, b.leastSignificantBits)
+}
+
+private fun orderedFriendPair(a: UUID, b: UUID): Pair<UUID, UUID> {
+    return if (compareUuidAsPostgres(a, b) <= 0) a to b else b to a
+}
+
 fun Route.friendsRoutes(jwtService: JwtService) {
     val jwtConfig = environment.config.config("jwt")
     val jwtAudience = jwtConfig.property("audience").getString()
@@ -84,14 +94,16 @@ fun Route.friendsRoutes(jwtService: JwtService) {
                         .singleOrNull()
 
                     if (incomingPending != null) {
+                        val (userId1, userId2) = orderedFriendPair(fromUUID, toUserId)
+
                         FriendRequests.update({ FriendRequests.id eq incomingPending[FriendRequests.id] }) {
                             it[status] = "accepted"
                             it[updatedAt] = LocalDateTime.now()
                         }
 
                         Friendships.insertIgnore {
-                            it[Friendships.userId1] = minOf(fromUUID, toUserId)
-                            it[Friendships.userId2] = maxOf(fromUUID, toUserId)
+                            it[Friendships.userId1] = userId1
+                            it[Friendships.userId2] = userId2
                             it[Friendships.createdAt] = LocalDateTime.now()
                         }
 
@@ -329,9 +341,10 @@ fun Route.friendsRoutes(jwtService: JwtService) {
                         it[updatedAt] = LocalDateTime.now()
                     }
 
+                    val (userId1, userId2) = orderedFriendPair(fromUserId, toUserId)
                     Friendships.insertIgnore {
-                        it[Friendships.userId1] = minOf(fromUserId, toUserId)
-                        it[Friendships.userId2] = maxOf(fromUserId, toUserId)
+                        it[Friendships.userId1] = userId1
+                        it[Friendships.userId2] = userId2
                         it[Friendships.createdAt] = LocalDateTime.now()
                     }
 
@@ -453,7 +466,7 @@ fun Route.friendsRoutes(jwtService: JwtService) {
 
             try {
                 val result = transaction {
-                    val (id1, id2) = if (userUUID < friendUUID) userUUID to friendUUID else friendUUID to userUUID
+                    val (id1, id2) = orderedFriendPair(userUUID, friendUUID)
 
                     val friendship = Friendships.selectAll()
                         .where {
