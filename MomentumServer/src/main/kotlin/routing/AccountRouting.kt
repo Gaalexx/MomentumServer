@@ -44,7 +44,7 @@ fun Route.accountRoutes(jwtService: JwtService) {
             val user = UserModel.getFullUser(usedId)
             if(user != null){
                 val body = call.receive<EditAccountDTO>()
-                UserModel.updateFullUser(usedId, body.login, body.email, body.phone)
+                UserModel.updateFullUser(usedId, body.username, body.email, body.phone)
                 call.respond(
                     HttpStatusCode.OK,
                     EditAccountDTO(
