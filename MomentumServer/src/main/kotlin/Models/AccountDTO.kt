@@ -10,7 +10,7 @@ data class AccountInformationDTO(
 
 @Serializable
 data class EditAccountDTO (
-    val login: String?,
+    val username: String?,
     val email: String?,
     val phone: String?,
     val profilePhotoURL: String?
