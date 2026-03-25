@@ -3,13 +3,17 @@ package com.example.routing
 import com.example.Models.PostDTO
 import com.example.Models.PresignedURLDTO
 import com.example.Models.S3UpdateStatusDTO
+import com.example.Models.UploadAvatarInfoDTO
 import com.example.Models.UploadInfoDTO
 import com.example.Respond
+import com.example.database.AvatarsModel
+import com.example.database.AvatarsTable
 import com.example.database.MediaModel
 import com.example.database.MediaTable
 import com.example.database.PostModel
 import com.example.database.PostsTable
 import com.example.database.UploadingStatus
+import com.example.database.UserModel
 import com.example.s3Client.S3Client
 import com.example.tokens.JwtService
 import io.ktor.http.HttpStatusCode
@@ -20,7 +24,9 @@ import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.update
 import java.time.Duration
 import java.util.UUID
 
@@ -54,8 +60,51 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
             call.respond(PresignedURLDTO(response, id.toString()))
         }
 
-        post("/status-upload") {
+        post("/upload-avatar") {
 
+            val principal = call.principal<JWTPrincipal>() ?: return@post call.respond(HttpStatusCode.Unauthorized)
+
+            val body = call.receive<UploadAvatarInfoDTO>()
+            val id = UUID.randomUUID()
+            val userId = UUID.fromString(principal.subject)
+            println(userId.toString())
+            val objectKey = "avatars/${userId}/${id}"
+
+            val avatar = AvatarsModel (
+                id = id,
+                userId = userId,
+                mimeType = body.mimeType,
+                isActive = true, //TODO: возможность загружать неактивную аватарку?
+                objectKey = objectKey,
+                sizeBytes = body.size,
+            )
+
+            val response = S3Client.presignPutUrl(objectKey, Duration.ofMinutes(2))
+            AvatarsTable.insertNewAvatars(avatar)
+            call.respond(PresignedURLDTO(response, id.toString()))
+        }
+
+        post("/status-upload-avatar") {
+            val principal = call.principal<JWTPrincipal>() ?: return@post call.respond(HttpStatusCode.Unauthorized)
+
+            val body = call.receive<S3UpdateStatusDTO>()
+
+            val userId = UUID.fromString(principal.subject)
+            val avatarId = UUID.fromString(body.mediaId)
+
+            when(body.status){
+                UploadingStatus.READY -> {
+                    AvatarsTable.changeStatus(avatarId, body.status)
+                    UserModel.updateAvatar(userId, avatarId)
+                }
+                UploadingStatus.UPLOADING -> null // TODO продумать эти случаи
+                UploadingStatus.FAILED -> AvatarsTable.deleteAvatar(avatarId)
+            }
+
+            call.respond(HttpStatusCode.OK)
+        }
+
+        post("/status-upload") {
             val principal = call.principal<JWTPrincipal>() ?: return@post call.respond(HttpStatusCode.Unauthorized)
 
             val body = call.receive<S3UpdateStatusDTO>()

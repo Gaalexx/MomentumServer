@@ -25,10 +25,12 @@ data class User(
     val registerDate: LocalDateTime,
     val phoneNumber: String?,
     val hasPremium: Boolean,
+    val avatarId: UUID?
 )
 
 object UserModel : Table("users") {
     val id = UserModel.uuid("id").uniqueIndex()
+    private val avatarId = uuid("avatar_id").nullable().default(null)
     private val password = varchar("password", 300)
     private val hasPremium = bool("has_premium").default(false)
     private val registered_at = datetime("registered_at").default(LocalDateTime.now())
@@ -102,7 +104,8 @@ object UserModel : Table("users") {
                         email = row[UserModel.email],
                         registerDate = row[UserModel.registered_at],
                         phoneNumber = row[UserModel.telephone],
-                        hasPremium = row[UserModel.hasPremium]
+                        hasPremium = row[UserModel.hasPremium],
+                        avatarId = row[UserModel.avatarId]
                     )
                 }
         }
@@ -163,6 +166,14 @@ object UserModel : Table("users") {
                 if (login != null) it[this.username] = login
                 if (email != null) it[this.email] = email
                 if (phoneNumber != null) it[this.telephone] = phoneNumber
+            }
+        }
+    }
+
+    fun updateAvatar(userId: UUID, avatarId: UUID) {
+        transaction {
+            UserModel.update({ UserModel.id eq userId }) {
+                it[UserModel.avatarId] = avatarId
             }
         }
     }
