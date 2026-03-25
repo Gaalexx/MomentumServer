@@ -85,7 +85,7 @@ object AvatarsTable : Table(name = "avatars") {
             .singleOrNull()
     }
 
-    fun getObjectKeyOfActiveAvatar(): String? = transaction {
+    fun getObjectKeyOfActiveAvatar(userId: UUID): String? = transaction {
         AvatarsTable
             .select(AvatarsTable.objectKey)
             .where { (AvatarsTable.userId eq userId) and (AvatarsTable.isActive eq true) }
