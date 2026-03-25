@@ -5,7 +5,9 @@ import com.example.Models.CheckResponseDTO
 import com.example.Models.CheckUserInfoIsFreeRequestDTO
 import com.example.Models.CheckUserInfoIsFreeResponseDTO
 import com.example.Models.EditAccountDTO
+import com.example.database.AvatarsTable
 import com.example.database.UserModel
+import com.example.s3Client.S3Client
 import com.example.tokens.JwtService
 import io.ktor.http.*
 import io.ktor.server.auth.*
@@ -24,12 +26,19 @@ fun Route.accountRoutes(jwtService: JwtService) {
             val usedId = UUID.fromString(principal.subject)
 
             val user = UserModel.getFullUser(usedId)
-            if(user != null){
+            if(user != null) {
+                val objectKey =
+                    if (user.avatarId == null) null
+                    else AvatarsTable.getObjectKeyOfAvatar(user.avatarId)
+                val url =
+                    if (objectKey == null) null
+                    else S3Client.getPresignedObjectUrl(objectKey)
+
                 if(user.username == null){
-                    call.respond(HttpStatusCode.OK, AccountInformationDTO(user.email, null)) // TODO обавить логику с урлом аватарки
+                    call.respond(HttpStatusCode.OK, AccountInformationDTO(user.email, url)) // TODO обавить логику с урлом аватарки
                 }
                 else{
-                    call.respond(HttpStatusCode.OK, AccountInformationDTO(user.username, null)) // TODO обавить логику с урлом аватарки
+                    call.respond(HttpStatusCode.OK, AccountInformationDTO(user.username, url)) // TODO обавить логику с урлом аватарки
                 }
             }
             else{
