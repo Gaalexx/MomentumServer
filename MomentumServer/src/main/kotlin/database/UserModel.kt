@@ -40,6 +40,30 @@ object UserModel : Table("users") {
 
     private val passwordHasher = PasswordHasher()
 
+    fun getUsernameColumn() = username
+    fun getEmailColumn() = email
+
+    fun ResultRow.getDisplayName(): String {
+        val username = this[UserModel.username]
+        return username ?: this[UserModel.email]
+    }
+
+    fun ResultRow.getDisplayNameWithEmailFallback(): String {
+        return this[UserModel.username] ?: this[UserModel.email]
+    }
+
+    fun extractUsername(row: ResultRow): String? {
+        return row[username]
+    }
+
+    fun extractEmail(row: ResultRow): String {
+        return row[email]
+    }
+
+    fun getDisplayNameFromRow(row: ResultRow): String {
+        return row[username] ?: row[email]
+    }
+
     fun findIdByEmail(email: String): UUID? {
         return transaction {
             UserModel
@@ -82,10 +106,6 @@ object UserModel : Table("users") {
                 .map { it[UserModel.username] }
                 .singleOrNull()
         }
-    }
-
-    fun extractUsername(row: ResultRow): String? {
-        return row[username]
     }
 
     fun getFullUser(userId: UUID): User? {

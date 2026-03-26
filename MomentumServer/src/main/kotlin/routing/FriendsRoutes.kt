@@ -30,6 +30,10 @@ import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.util.*
 
+//Enum imports
+import com.example.Models.FriendRequestStatus
+import com.example.Models.FriendRequestUpdateStatus
+
 private fun compareUuidAsPostgres(a: UUID, b: UUID): Int {
     val msbCompare = java.lang.Long.compareUnsigned(a.mostSignificantBits, b.mostSignificantBits)
     if (msbCompare != 0) return msbCompare
@@ -73,86 +77,20 @@ fun Route.friendsRoutes(jwtService: JwtService) {
                 }
 
                 val result = transaction {
-                    val outgoingPending = FriendRequests.selectAll()
-                        .where {
-                            (FriendRequests.fromUserId eq fromUUID) and
-                                    (FriendRequests.toUserId eq toUserId) and
-                                    (FriendRequests.status eq "pending")
-                        }
-                        .singleOrNull()
-
-                    if (outgoingPending != null) {
-                        return@transaction Pair("ALREADY_SENT", outgoingPending[FriendRequests.id])
-                    }
-
-                    val incomingPending = FriendRequests.selectAll()
-                        .where {
-                            (FriendRequests.fromUserId eq toUserId) and
-                                    (FriendRequests.toUserId eq fromUUID) and
-                                    (FriendRequests.status eq "pending")
-                        }
-                        .singleOrNull()
-
-                    if (incomingPending != null) {
-                        val (userId1, userId2) = orderedFriendPair(fromUUID, toUserId)
-
-                        FriendRequests.update({ FriendRequests.id eq incomingPending[FriendRequests.id] }) {
-                            it[status] = "accepted"
-                            it[updatedAt] = LocalDateTime.now()
-                        }
-
-                        Friendships.insertIgnore {
-                            it[Friendships.userId1] = userId1
-                            it[Friendships.userId2] = userId2
-                            it[Friendships.createdAt] = LocalDateTime.now()
-                        }
-
-                        return@transaction Pair("MIRROR_ACCEPTED", incomingPending[FriendRequests.id])
-                    }
-
-                    val existingRejected = FriendRequests.selectAll()
-                        .where {
-                            (FriendRequests.fromUserId eq fromUUID) and
-                                    (FriendRequests.toUserId eq toUserId) and
-                                    (FriendRequests.status inList listOf("rejected", "cancelled"))
-                        }
-                        .singleOrNull()
-
-                    if (existingRejected != null) {
-                        FriendRequests.update({ FriendRequests.id eq existingRejected[FriendRequests.id] }) {
-                            it[status] = "pending"
-                            it[updatedAt] = LocalDateTime.now()
-                        }
-                        return@transaction Pair("RESENT", existingRejected[FriendRequests.id])
-                    }
-
-                    val requestId = UUID.randomUUID()
-                    val now = LocalDateTime.now()
-
-                    FriendRequests.insert {
-                        it[FriendRequests.id] = requestId
-                        it[FriendRequests.fromUserId] = fromUUID
-                        it[FriendRequests.toUserId] = toUserId
-                        it[FriendRequests.status] = "pending"
-                        it[FriendRequests.createdAt] = now
-                        it[FriendRequests.updatedAt] = now
-                    }
-
-                    return@transaction Pair("CREATED", requestId)
+                    FriendRequests.createOrProcessRequest(fromUUID, toUserId, ::orderedFriendPair)
                 }
 
-                val (action, requestId) = result
-
-                val message = when (action) {
+                val message = when (result.action) {
                     "ALREADY_SENT" -> "Friend request already sent"
                     "MIRROR_ACCEPTED" -> "Friend request accepted (mutual)"
                     "RESENT" -> "Friend request re-sent successfully"
+                    "ALREADY_FRIENDS" -> "You are already friends"
                     else -> "Friend request sent successfully"
                 }
 
                 call.respond(
                     HttpStatusCode.Created,
-                    FriendRequestActionDTO(true, message, requestId.toString())
+                    FriendRequestActionDTO(true, message, result.requestId.toString())
                 )
 
             } catch (e: Exception) {
@@ -172,28 +110,7 @@ fun Route.friendsRoutes(jwtService: JwtService) {
 
             try {
                 val incomingRequests = transaction {
-                    FriendRequests
-                        .join(UserModel, JoinType.INNER,
-                            onColumn = FriendRequests.fromUserId,
-                            otherColumn = UserModel.id)
-                        .selectAll()
-                        .where {
-                            (FriendRequests.toUserId eq userUUID) and
-                                    (FriendRequests.status eq "pending")
-                        }
-                        .orderBy(FriendRequests.createdAt to SortOrder.DESC)
-                        .map { row ->
-                            FriendRequestWithUserDetailsDTO(
-                                id = row[FriendRequests.id].toString(),
-                                fromUserId = row[FriendRequests.fromUserId].toString(),
-                                toUserId = row[FriendRequests.toUserId].toString(),
-                                status = row[FriendRequests.status],
-                                createdAt = row[FriendRequests.createdAt].toInstant(ZoneOffset.UTC).toString(),
-                                updatedAt = row[FriendRequests.updatedAt].toInstant(ZoneOffset.UTC).toString(),
-                                fromUserUsername = UserModel.extractUsername(row),
-                                toUserUsername = null
-                            )
-                        }
+                    FriendRequests.getIncomingRequests(userUUID)
                 }
 
                 call.respond(HttpStatusCode.OK, incomingRequests)
@@ -214,28 +131,7 @@ fun Route.friendsRoutes(jwtService: JwtService) {
 
             try {
                 val outgoingRequests = transaction {
-                    FriendRequests
-                        .join(UserModel, JoinType.INNER,
-                            onColumn = FriendRequests.toUserId,
-                            otherColumn = UserModel.id)
-                        .selectAll()
-                        .where {
-                            (FriendRequests.fromUserId eq userUUID) and
-                                    (FriendRequests.status eq "pending")
-                        }
-                        .orderBy(FriendRequests.createdAt to SortOrder.DESC)
-                        .map { row ->
-                            FriendRequestWithUserDetailsDTO(
-                                id = row[FriendRequests.id].toString(),
-                                fromUserId = row[FriendRequests.fromUserId].toString(),
-                                toUserId = row[FriendRequests.toUserId].toString(),
-                                status = row[FriendRequests.status],
-                                createdAt = row[FriendRequests.createdAt].toInstant(ZoneOffset.UTC).toString(),
-                                updatedAt = row[FriendRequests.updatedAt].toInstant(ZoneOffset.UTC).toString(),
-                                fromUserUsername = null,
-                                toUserUsername = UserModel.extractUsername(row)
-                            )
-                        }
+                    FriendRequests.getOutgoingRequests(userUUID)
                 }
 
                 call.respond(HttpStatusCode.OK, outgoingRequests)
@@ -243,6 +139,28 @@ fun Route.friendsRoutes(jwtService: JwtService) {
                 call.respond(
                     HttpStatusCode.InternalServerError,
                     FriendRequestActionDTO(false, "Failed to get outgoing requests: ${e.message}")
+                )
+            }
+        }
+
+        get("/friends/requests/rejected") {
+            val principal = call.principal<JWTPrincipal>()
+            val userId = principal?.payload?.subject
+                ?: return@get call.respond(HttpStatusCode.Unauthorized, "Invalid token")
+
+            val userUUID = UUID.fromString(userId)
+            val asSender = call.parameters["asSender"]?.toBoolean() ?: true
+
+            try {
+                val rejectedRequests = transaction {
+                    FriendRequests.getRejectedOrCancelledRequests(userUUID, asSender)
+                }
+
+                call.respond(HttpStatusCode.OK, rejectedRequests)
+            } catch (e: Exception) {
+                call.respond(
+                    HttpStatusCode.InternalServerError,
+                    FriendRequestActionDTO(false, "Failed to get rejected requests: ${e.message}")
                 )
             }
         }
@@ -263,19 +181,7 @@ fun Route.friendsRoutes(jwtService: JwtService) {
 
             try {
                 val deleted = transaction {
-                    val request = FriendRequests.selectAll()
-                        .where { FriendRequests.id eq requestUUID }
-                        .singleOrNull() ?: return@transaction 0
-
-                    if (request[FriendRequests.fromUserId] != userUUID) {
-                        return@transaction -1
-                    }
-
-                    if (request[FriendRequests.status] != "pending") {
-                        return@transaction -2
-                    }
-
-                    FriendRequests.deleteWhere { FriendRequests.id eq requestUUID }
+                    FriendRequests.deleteRequest(requestUUID, userUUID)
                 }
 
                 when (deleted) {
@@ -320,35 +226,7 @@ fun Route.friendsRoutes(jwtService: JwtService) {
 
             try {
                 val result = transaction {
-                    val request = FriendRequests.selectAll()
-                        .where { FriendRequests.id eq requestUUID }
-                        .singleOrNull() ?: return@transaction "NOT_FOUND"
-
-                    val fromUserId = request[FriendRequests.fromUserId]
-                    val toUserId = request[FriendRequests.toUserId]
-                    val currentStatus = request[FriendRequests.status]
-
-                    if (userUUID != toUserId) {
-                        return@transaction "FORBIDDEN"
-                    }
-
-                    if (currentStatus != "pending") {
-                        return@transaction "INVALID_STATUS"
-                    }
-
-                    FriendRequests.update({ FriendRequests.id eq requestUUID }) {
-                        it[status] = "accepted"
-                        it[updatedAt] = LocalDateTime.now()
-                    }
-
-                    val (userId1, userId2) = orderedFriendPair(fromUserId, toUserId)
-                    Friendships.insertIgnore {
-                        it[Friendships.userId1] = userId1
-                        it[Friendships.userId2] = userId2
-                        it[Friendships.createdAt] = LocalDateTime.now()
-                    }
-
-                    return@transaction "SUCCESS"
+                    FriendRequests.acceptRequest(requestUUID, userUUID, ::orderedFriendPair)
                 }
 
                 when (result) {
@@ -397,27 +275,7 @@ fun Route.friendsRoutes(jwtService: JwtService) {
 
             try {
                 val result = transaction {
-                    val request = FriendRequests.selectAll()
-                        .where { FriendRequests.id eq requestUUID }
-                        .singleOrNull() ?: return@transaction "NOT_FOUND"
-
-                    val toUserId = request[FriendRequests.toUserId]
-                    val currentStatus = request[FriendRequests.status]
-
-                    if (userUUID != toUserId) {
-                        return@transaction "FORBIDDEN"
-                    }
-
-                    if (currentStatus != "pending") {
-                        return@transaction "INVALID_STATUS"
-                    }
-
-                    FriendRequests.update({ FriendRequests.id eq requestUUID }) {
-                        it[status] = "rejected"
-                        it[updatedAt] = LocalDateTime.now()
-                    }
-
-                    "SUCCESS"
+                    FriendRequests.rejectRequest(requestUUID, userUUID)
                 }
 
                 when (result) {
@@ -466,37 +324,7 @@ fun Route.friendsRoutes(jwtService: JwtService) {
 
             try {
                 val result = transaction {
-                    val (id1, id2) = orderedFriendPair(userUUID, friendUUID)
-
-                    val friendship = Friendships.selectAll()
-                        .where {
-                            (Friendships.userId1 eq id1) and (Friendships.userId2 eq id2)
-                        }
-                        .singleOrNull()
-
-                    if (friendship == null) {
-                        return@transaction "NOT_FOUND"
-                    }
-
-                    val friendRequest = FriendRequests.selectAll()
-                        .where {
-                            ((FriendRequests.fromUserId eq userUUID) and (FriendRequests.toUserId eq friendUUID)) or
-                                    ((FriendRequests.fromUserId eq friendUUID) and (FriendRequests.toUserId eq userUUID))
-                        }
-                        .singleOrNull()
-
-                    Friendships.deleteWhere {
-                        (Friendships.userId1 eq id1) and (Friendships.userId2 eq id2)
-                    }
-
-                    if (friendRequest != null) {
-                        FriendRequests.update({ FriendRequests.id eq friendRequest[FriendRequests.id] }) {
-                            it[status] = "cancelled"
-                            it[updatedAt] = LocalDateTime.now()
-                        }
-                    }
-
-                    return@transaction "SUCCESS"
+                    Friendships.deleteFriendshipAndUpdateRequest(userUUID, friendUUID)
                 }
 
                 when (result) {
@@ -530,36 +358,8 @@ fun Route.friendsRoutes(jwtService: JwtService) {
 
             try {
                 val friends = transaction {
-                    val friends1 = Friendships
-                        .join(UserModel, JoinType.INNER,
-                            onColumn = Friendships.userId2,
-                            otherColumn = UserModel.id)
-                        .selectAll()
-                        .where { Friendships.userId1 eq userUUID }
-                        .map { row ->
-                            FriendshipResponseDTO(
-                                userId = row[UserModel.id].toString(),
-                                username = UserModel.extractUsername(row),
-                                friendsSince = row[Friendships.createdAt].toInstant(ZoneOffset.UTC).toString()
-                            )
-                        }
-
-                    val friends2 = Friendships
-                        .join(UserModel, JoinType.INNER,
-                            onColumn = Friendships.userId1,
-                            otherColumn = UserModel.id)
-                        .selectAll()
-                        .where { Friendships.userId2 eq userUUID }
-                        .map { row ->
-                            FriendshipResponseDTO(
-                                userId = row[UserModel.id].toString(),
-                                username = UserModel.extractUsername(row),
-                                friendsSince = row[Friendships.createdAt].toInstant(ZoneOffset.UTC).toString()
-                            )
-                        }
-
-                    friends1 + friends2
-                }.sortedByDescending { it.friendsSince }
+                    Friendships.getFriendsWithDetails(userUUID)
+                }
 
                 call.respond(HttpStatusCode.OK, FriendshipListDTO(friends))
             } catch (e: Exception) {

@@ -21,9 +21,10 @@ data class FriendRequestResponseDTO(
     val id: String,
     val fromUserId: String,
     val toUserId: String,
-    val status: String,
+    val status: FriendRequestStatus,
     val createdAt: String,
-    val updatedAt: String
+    val updatedAt: String,
+    val userAvatarUrl: String? = null
 )
 
 @Serializable
@@ -31,11 +32,13 @@ data class FriendRequestWithUserDetailsDTO(
     val id: String,
     val fromUserId: String,
     val toUserId: String,
-    val status: String,
+    val status: FriendRequestStatus,
     val createdAt: String,
     val updatedAt: String,
     val fromUserUsername: String? = null,
-    val toUserUsername: String? = null
+    val toUserUsername: String? = null,
+    val fromUserAvatarUrl: String? = null,
+    val toUserAvatarUrl: String? = null
 )
 
 @Serializable
@@ -54,19 +57,20 @@ data class FriendRequestActionDTO(
 @Serializable
 data class FriendRequestStatusDTO(
     val requestId: String,
-    val status: String
+    val status: FriendRequestStatus
 )
 
 @Serializable
 data class FriendRequestUpdateDTO(
-    val status: String  // "accepted", "rejected", "cancelled"
+    val status: FriendRequestUpdateStatus  // "accepted", "rejected", "cancelled"
 )
 
 @Serializable
 data class FriendshipResponseDTO(
     val userId: String,
     val username: String?,
-    val friendsSince: String
+    val friendsSince: String,
+    val userAvatarUrl: String? = null
 )
 
 @Serializable

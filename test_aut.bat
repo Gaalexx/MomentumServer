@@ -24,9 +24,7 @@ echo [1/4] GET REFRESH-TOKEN...
 :: Create Unique tmp-file
 set TEMP_FILE=%TEMP%\login_%RANDOM%.json
 
-curl -s -X POST http://localhost/api/momentum/login ^
-  -H "Content-Type: application/json" ^
-  -d "{\"email\":\"%EMAIL%\",\"phone\":null,\"password\":\"%PASSWORD%\",\"deviceInfo\":\"%DEVICE_INFO%\"}" > %TEMP_FILE%
+curl -s -X POST http://localhost/api/momentum/login -H "Content-Type: application/json" -d "{\"email\":\"%EMAIL%\",\"phone\":null,\"password\":\"%PASSWORD%\",\"deviceInfo\":\"%DEVICE_INFO%\"}" > %TEMP_FILE%
 
 if %errorlevel% neq 0 (
     echo ERROR: connection to server
@@ -59,9 +57,7 @@ echo [2/4] Get access token...
 
 set AUTH_TEMP=%TEMP%\auth_%RANDOM%.json
 
-curl -s -X POST http://localhost/api/momentum/auth ^
-  -H "Content-Type: application/json" ^
-  -d "{\"token\":\"!REFRESH_TOKEN!\"}" > %AUTH_TEMP%
+curl -s -X POST http://localhost/api/momentum/auth -H "Content-Type: application/json" -d "{\"token\":\"!REFRESH_TOKEN!\"}" > %AUTH_TEMP%
 
 :: Extract access token using PowerShell
 for /f "usebackq delims=" %%i in (`powershell -Command "$json = Get-Content '%AUTH_TEMP%' -Raw | ConvertFrom-Json; if ($json.token) { Write-Output $json.token } else { Write-Output '' }"`) do (
@@ -86,8 +82,7 @@ echo [3/4] CHECK /hello2...
 
 set HELLO_TEMP=%TEMP%\hello_%RANDOM%.txt
 
-curl -s http://localhost/api/momentum/hello2 ^
-  -H "Authorization: Bearer !ACCESS_TOKEN!" > %HELLO_TEMP%
+curl -s http://localhost/api/momentum/hello2 -H "Authorization: Bearer !ACCESS_TOKEN!" > %HELLO_TEMP%
 
 echo Result:
 type %HELLO_TEMP%
@@ -117,6 +112,8 @@ echo.
 echo curl -X POST http://localhost/api/momentum/logout -H "Content-Type: application/json" -d "{\"refreshToken\":\"!REFRESH_TOKEN!\"}"
 echo.
 echo curl -X GET http://localhost/api/momentum/friends/requests/outgoing -H "Authorization: Bearer !ACCESS_TOKEN!"
+echo.
+echo curl -X GET http://localhost/api/momentum/friends/requests/rejected -H "Authorization: Bearer !ACCESS_TOKEN!"
 echo.
 echo curl -X DELETE http://localhost/api/momentum/friends/request/REQUEST_ID -H "Authorization: Bearer !ACCESS_TOKEN!"
 echo.
