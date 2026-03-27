@@ -135,14 +135,17 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
         post("/get-friends-media") {
             println("1")
             val principal = call.principal<JWTPrincipal>() ?: return@post call.respond(HttpStatusCode.Unauthorized)
-
+            println("1.1")
             val userId = UUID.fromString(principal.subject)
-
+            println("1.2")
             val listOfFriends = Friendships.getFriendsWithDetails(userId)
             val listOfPosts: MutableList<PostModel> = mutableListOf()
+            println("1.3")
             listOfFriends.forEach { friend ->
+                println("1.3.${friend.username}")
                  val posts = PostsTable.getPostsOfUser(UUID.fromString(friend.userId))
                 posts.forEach { post ->
+                    println("1.3.${post.title}")
                     listOfPosts.add(post)
                 }
             }
