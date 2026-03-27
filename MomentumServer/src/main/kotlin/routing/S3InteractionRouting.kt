@@ -157,13 +157,13 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
             val userId = UUID.fromString(principal.subject)
 
             val listOfPosts = PostsTable.getPostsOfUser(userId)
+
             val listToSend: MutableList<PostDTO> = mutableListOf()
             listOfPosts.forEach { it ->
                 val media = MediaTable.getObjectKeyOfPost(it.mediaId)
-                val user = UserModel.getFullUser(it.userId)
-                if(media != null && user != null){
+                if(media != null){
                     val presignedURL = S3Client.getPresignedObjectUrl(media)
-                    listToSend.add(PostDTO(it.id.toString(), it.userId.toString(), userName = user.username ?: user.email, it.title, it.inUse, presignedURL, null, it.createdAt))
+                    listToSend.add(PostDTO(it.id.toString(), it.userId.toString(), it.title, it.inUse, presignedURL, it.createdAt))
                 }
             }
 
