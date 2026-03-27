@@ -134,24 +134,19 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
         }
 
         post("/get-friends-media") {
-            //println("1")
             val principal = call.principal<JWTPrincipal>() ?: return@post call.respond(HttpStatusCode.Unauthorized)
-           // println("1.1")
             val userId = UUID.fromString(principal.subject)
-           // println("1.2")
+
             val listOfFriends = transaction {Friendships.getFriendsWithDetails(userId)}
             val listToSend: MutableList<PostDTO> = mutableListOf()
-            //println("1.3")
 
             listOfFriends.forEach { friend ->
-              //  println("1.3.${friend.username}")
-                 val posts = PostsTable.getPostsOfUser(UUID.fromString(friend.userId))
+                val posts = PostsTable.getPostsOfUser(UUID.fromString(friend.userId))
                 posts.forEach { post ->
-                  //  println("1.3.${post.title}")
                     val media = MediaTable.getObjectKeyOfPost(post.mediaId)
                     if(media != null){
                         listToSend.add(PostDTO(post.id.toString(), post.userId.toString(), userName = friend.username,
-                            title = post.title, inUse = post.inUse, presignedURL = "", avatarPresignedURL = friend.userAvatarUrl, createdAt = post.createdAt))
+                            title = post.title, inUse = post.inUse, presignedURL = media, avatarPresignedURL = friend.userAvatarUrl, createdAt = post.createdAt))
                     }
                 }
             }
