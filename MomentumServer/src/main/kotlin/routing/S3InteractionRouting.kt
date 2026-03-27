@@ -8,12 +8,15 @@ import com.example.Models.UploadInfoDTO
 import com.example.Respond
 import com.example.database.AvatarsModel
 import com.example.database.AvatarsTable
+import com.example.database.Friendships
 import com.example.database.MediaModel
 import com.example.database.MediaTable
 import com.example.database.PostModel
 import com.example.database.PostsTable
 import com.example.database.UploadingStatus
+import com.example.database.User
 import com.example.database.UserModel
+import com.example.database.getAvatarURL
 import com.example.s3Client.S3Client
 import com.example.tokens.JwtService
 import io.ktor.http.HttpStatusCode
@@ -129,22 +132,72 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
             call.respond(HttpStatusCode.OK)
         }
 
-        post("/get-my-media") {
+        post("/get-friends-media") {
 
             val principal = call.principal<JWTPrincipal>() ?: return@post call.respond(HttpStatusCode.Unauthorized)
 
             val userId = UUID.fromString(principal.subject)
 
-            val listOfPosts = PostsTable.getPostsOfUser(userId)
-            val listToSend: MutableList<PostDTO> = mutableListOf()
-            listOfPosts.forEach { it ->
-                val media = MediaTable.getObjectKeyOfPost(it.mediaId)
-                val user = UserModel.getFullUser(it.userId)
-                if(media != null && user != null){
-                    val presignedURL = S3Client.getPresignedObjectUrl(media)
-                    listToSend.add(PostDTO(it.id.toString(), it.userId.toString(), userName = user.username ?: user.email, it.title, it.inUse, presignedURL, null, it.createdAt))
+            val listOfFriends = Friendships.getFriendsWithDetails(userId)
+            val listOfPosts: MutableList<PostModel> = mutableListOf()
+            listOfFriends.forEach { friend ->
+                 val posts = PostsTable.getPostsOfUser(UUID.fromString(friend.userId))
+                posts.forEach { post ->
+                    listOfPosts.add(post)
                 }
             }
+
+            val listToSend: MutableList<PostDTO> = mutableListOf()
+            val avatarsHashMap: HashMap<UUID, Pair<User, String?>> = hashMapOf()
+
+            listOfPosts.forEach { it ->
+                val media = MediaTable.getObjectKeyOfPost(it.mediaId)
+                if(avatarsHashMap.containsKey(it.userId)){
+                    if(media != null){
+                        val presignedURL = S3Client.getPresignedObjectUrl(media)
+                        listToSend.add(PostDTO(it.id.toString(), it.userId.toString(), userName = avatarsHashMap[it.userId]?.first?.username ?: avatarsHashMap[it.userId]!!.first.email, it.title, it.inUse, presignedURL,
+                            avatarsHashMap[it.userId]?.second, it.createdAt))
+                    }
+                }
+                else{
+                    val user = UserModel.getFullUser(it.userId)
+                    if(user != null){
+                        val presignedAvatarURL = getAvatarURL(it.userId)
+
+                        avatarsHashMap[it.userId] = Pair(user, presignedAvatarURL)
+
+                        if(media != null){
+                            val presignedURL = S3Client.getPresignedObjectUrl(media)
+                            listToSend.add(PostDTO(it.id.toString(), it.userId.toString(), userName = user.username ?: user.email, it.title, it.inUse, presignedURL, presignedAvatarURL, it.createdAt))
+                        }
+                    }
+                }
+            }
+
+            call.respond(listToSend)
+        }
+
+        post("/get-my-media") {
+
+            val principal = call.principal<JWTPrincipal>() ?: return@post call.respond(HttpStatusCode.Unauthorized)
+
+            val userId = UUID.fromString(principal.subject)
+            val user = UserModel.getFullUser(userId)
+            val presignedAvatarURL = getAvatarURL(userId)
+
+            val listOfPosts = PostsTable.getPostsOfUser(userId)
+
+            val listToSend: MutableList<PostDTO> = mutableListOf()
+            if(user != null){
+                listOfPosts.forEach { it ->
+                    val media = MediaTable.getObjectKeyOfPost(it.mediaId)
+                    if(media != null){
+                        val presignedURL = S3Client.getPresignedObjectUrl(media)
+                        listToSend.add(PostDTO(it.id.toString(), it.userId.toString(), userName = user.username ?: user.email, it.title, it.inUse, presignedURL, presignedAvatarURL, it.createdAt))
+                    }
+                }
+            }
+
 
             call.respond(listToSend)
         }
