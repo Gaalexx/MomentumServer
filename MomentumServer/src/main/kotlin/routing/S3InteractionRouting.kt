@@ -145,8 +145,9 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
                 posts.forEach { post ->
                     val media = MediaTable.getObjectKeyOfPost(post.mediaId)
                     if(media != null){
+                        val presignedURL = S3Client.getPresignedObjectUrl(media)
                         listToSend.add(PostDTO(post.id.toString(), post.userId.toString(), userName = friend.username,
-                            title = post.title, inUse = post.inUse, presignedURL = media, avatarPresignedURL = friend.userAvatarUrl, createdAt = post.createdAt))
+                            title = post.title, inUse = post.inUse, presignedURL = presignedURL, avatarPresignedURL = friend.userAvatarUrl, createdAt = post.createdAt))
                     }
                 }
             }
