@@ -33,6 +33,8 @@ import java.util.*
 //Enum imports
 import com.example.Models.FriendRequestStatus
 import com.example.Models.FriendRequestUpdateStatus
+import com.example.database.AvatarsTable
+import com.example.s3Client.S3Client
 
 private fun compareUuidAsPostgres(a: UUID, b: UUID): Int {
     val msbCompare = java.lang.Long.compareUnsigned(a.mostSignificantBits, b.mostSignificantBits)
@@ -111,6 +113,16 @@ fun Route.friendsRoutes(jwtService: JwtService) {
             try {
                 val incomingRequests = transaction {
                     FriendRequests.getIncomingRequests(userUUID)
+                }
+                incomingRequests.map{
+                    val user = UserModel.getFullUser(UUID.fromString(it.fromUserId))
+                    if(user != null && user.avatarId != null){
+                        val objectKey = AvatarsTable.getObjectKeyOfAvatar(user.avatarId)
+                        if(objectKey != null){
+                            val presignedURL = S3Client.getPresignedObjectUrl(objectKey)
+                            it.fromUserAvatarUrl = presignedURL
+                        }
+                    }
                 }
 
                 call.respond(HttpStatusCode.OK, incomingRequests)
@@ -359,6 +371,17 @@ fun Route.friendsRoutes(jwtService: JwtService) {
             try {
                 val friends = transaction {
                     Friendships.getFriendsWithDetails(userUUID)
+                }
+
+                friends.map{
+                    val user = UserModel.getFullUser(UUID.fromString(it.userId))
+                    if(user != null && user.avatarId != null){
+                        val objectKey = AvatarsTable.getObjectKeyOfAvatar(user.avatarId)
+                        if(objectKey != null){
+                            val presignedURL = S3Client.getPresignedObjectUrl(objectKey)
+                            it.userAvatarUrl = presignedURL
+                        }
+                    }
                 }
 
                 call.respond(HttpStatusCode.OK, FriendshipListDTO(friends))

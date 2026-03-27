@@ -143,7 +143,7 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
                 val user = UserModel.getFullUser(it.userId)
                 if(media != null && user != null){
                     val presignedURL = S3Client.getPresignedObjectUrl(media)
-                    listToSend.add(PostDTO(it.id.toString(), it.userId.toString(), /*userName = user.username ?: user.email,*/ it.title, it.inUse, presignedURL, it.createdAt))
+                    listToSend.add(PostDTO(it.id.toString(), it.userId.toString(), userName = user.username ?: user.email, it.title, it.inUse, presignedURL, it.createdAt))
                 }
             }
 
