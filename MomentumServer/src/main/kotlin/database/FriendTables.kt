@@ -367,12 +367,12 @@ object Friendships : Table("friendships") {
             .selectAll()
             .where { Friendships.userId1 eq userId }
             .map { row ->
-                val userId = row[UserModel.id]
+                val friendId = row[UserModel.id]
                 FriendshipResponseDTO(
-                    userId = row[UserModel.id].toString(),
+                    userId = friendId.toString(),
                     username = UserModel.getDisplayNameFromRow(row),
                     friendsSince = row[Friendships.createdAt].toInstant(ZoneOffset.UTC).toString(),
-                    userAvatarUrl = getAvatarURL(userId)
+                    userAvatarUrl = getAvatarURL(friendId)
                 )
             }
 
@@ -382,12 +382,12 @@ object Friendships : Table("friendships") {
             .selectAll()
             .where { Friendships.userId2 eq userId }
             .map { row ->
-                val userId = row[UserModel.id]
+                val friendId = row[UserModel.id]
                 FriendshipResponseDTO(
-                    userId = userId.toString(),
+                    userId = friendId.toString(),
                     username = UserModel.getDisplayNameFromRow(row),
                     friendsSince = row[Friendships.createdAt].toInstant(ZoneOffset.UTC).toString(),
-                    userAvatarUrl = getAvatarURL(userId)
+                    userAvatarUrl = getAvatarURL(friendId)
                 )
             }
 
