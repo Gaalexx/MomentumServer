@@ -114,16 +114,6 @@ fun Route.friendsRoutes(jwtService: JwtService) {
                 val incomingRequests = transaction {
                     FriendRequests.getIncomingRequests(userUUID)
                 }
-                incomingRequests.map{
-                    val user = UserModel.getFullUser(UUID.fromString(it.fromUserId))
-                    if(user != null && user.avatarId != null){
-                        val objectKey = AvatarsTable.getObjectKeyOfAvatar(user.avatarId)
-                        if(objectKey != null){
-                            val presignedURL = S3Client.getPresignedObjectUrl(objectKey)
-                            it.fromUserAvatarUrl = presignedURL
-                        }
-                    }
-                }
 
                 call.respond(HttpStatusCode.OK, incomingRequests)
             } catch (e: Exception) {
@@ -371,17 +361,6 @@ fun Route.friendsRoutes(jwtService: JwtService) {
             try {
                 val friends = transaction {
                     Friendships.getFriendsWithDetails(userUUID)
-                }
-
-                friends.map{
-                    val user = UserModel.getFullUser(UUID.fromString(it.userId))
-                    if(user != null && user.avatarId != null){
-                        val objectKey = AvatarsTable.getObjectKeyOfAvatar(user.avatarId)
-                        if(objectKey != null){
-                            val presignedURL = S3Client.getPresignedObjectUrl(objectKey)
-                            it.userAvatarUrl = presignedURL
-                        }
-                    }
                 }
 
                 call.respond(HttpStatusCode.OK, FriendshipListDTO(friends))

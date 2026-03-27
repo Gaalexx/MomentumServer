@@ -155,6 +155,7 @@ object FriendRequests : Table("friend_requests") {
                     createdAt = row[FriendRequests.createdAt].toInstant(ZoneOffset.UTC).toString(),
                     updatedAt = row[FriendRequests.updatedAt].toInstant(ZoneOffset.UTC).toString(),
                     fromUserUsername = UserModel.getDisplayNameFromRow(row),
+                    fromUserAvatarUrl = getAvatarURL(row[FriendRequests.fromUserId]),
                     toUserUsername = recipientDisplayName
                 )
             }
@@ -187,6 +188,7 @@ object FriendRequests : Table("friend_requests") {
                     createdAt = row[FriendRequests.createdAt].toInstant(ZoneOffset.UTC).toString(),
                     updatedAt = row[FriendRequests.updatedAt].toInstant(ZoneOffset.UTC).toString(),
                     fromUserUsername = senderDisplayName,
+                    fromUserAvatarUrl = getAvatarURL(row[FriendRequests.fromUserId]),
                     toUserUsername = UserModel.getDisplayNameFromRow(row)
                 )
             }
@@ -233,6 +235,7 @@ object FriendRequests : Table("friend_requests") {
                         createdAt = row[FriendRequests.createdAt].toInstant(ZoneOffset.UTC).toString(),
                         updatedAt = row[FriendRequests.updatedAt].toInstant(ZoneOffset.UTC).toString(),
                         fromUserUsername = currentUserDisplayName,
+                        fromUserAvatarUrl = getAvatarURL(row[FriendRequests.fromUserId]),
                         toUserUsername = UserModel.getDisplayNameFromRow(row)
                     )
                 }
@@ -253,6 +256,7 @@ object FriendRequests : Table("friend_requests") {
                         createdAt = row[FriendRequests.createdAt].toInstant(ZoneOffset.UTC).toString(),
                         updatedAt = row[FriendRequests.updatedAt].toInstant(ZoneOffset.UTC).toString(),
                         fromUserUsername = UserModel.getDisplayNameFromRow(row),
+                        fromUserAvatarUrl = getAvatarURL(row[FriendRequests.fromUserId]),
                         toUserUsername = currentUserDisplayName
                     )
                 }
@@ -363,10 +367,12 @@ object Friendships : Table("friendships") {
             .selectAll()
             .where { Friendships.userId1 eq userId }
             .map { row ->
+                val userId = row[UserModel.id]
                 FriendshipResponseDTO(
                     userId = row[UserModel.id].toString(),
                     username = UserModel.getDisplayNameFromRow(row),
-                    friendsSince = row[Friendships.createdAt].toInstant(ZoneOffset.UTC).toString()
+                    friendsSince = row[Friendships.createdAt].toInstant(ZoneOffset.UTC).toString(),
+                    userAvatarUrl = getAvatarURL(userId)
                 )
             }
 
@@ -376,10 +382,12 @@ object Friendships : Table("friendships") {
             .selectAll()
             .where { Friendships.userId2 eq userId }
             .map { row ->
+                val userId = row[UserModel.id]
                 FriendshipResponseDTO(
-                    userId = row[UserModel.id].toString(),
+                    userId = userId.toString(),
                     username = UserModel.getDisplayNameFromRow(row),
-                    friendsSince = row[Friendships.createdAt].toInstant(ZoneOffset.UTC).toString()
+                    friendsSince = row[Friendships.createdAt].toInstant(ZoneOffset.UTC).toString(),
+                    userAvatarUrl = getAvatarURL(userId)
                 )
             }
 

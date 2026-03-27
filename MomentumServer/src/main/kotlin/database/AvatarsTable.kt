@@ -1,5 +1,6 @@
 package com.example.database
 
+import com.example.s3Client.S3Client
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.and
@@ -18,6 +19,17 @@ data class AvatarsModel(
     val objectKey: String,
     val sizeBytes: Long,
 )
+
+fun getAvatarURL(id: UUID): String? {
+    val user = UserModel.getFullUser(id)
+    if(user != null && user.avatarId != null){
+        val key = AvatarsTable.getObjectKeyOfAvatar(user.avatarId)
+        if(key != null){
+            return S3Client.getPresignedObjectUrl(key)
+        }
+    }
+    return null
+}
 
 object AvatarsTable : Table(name = "avatars") {
     private val id = uuid("id").uniqueIndex()

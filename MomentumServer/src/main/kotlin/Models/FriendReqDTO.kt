@@ -37,7 +37,7 @@ data class FriendRequestWithUserDetailsDTO(
     val updatedAt: String,
     val fromUserUsername: String,
     val toUserUsername: String,
-    var fromUserAvatarUrl: String? = null,
+    val fromUserAvatarUrl: String? = null,
     var toUserAvatarUrl: String? = null
 )
 
@@ -70,7 +70,7 @@ data class FriendshipResponseDTO(
     val userId: String,
     val username: String?,
     val friendsSince: String,
-    var userAvatarUrl: String? = null
+    val userAvatarUrl: String? = null
 )
 
 @Serializable
