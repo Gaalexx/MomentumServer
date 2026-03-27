@@ -156,7 +156,7 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
                 }
             }
 
-            call.respond(listToSend)
+            call.respond(HttpStatusCode.OK, listToSend)
         }
 
         post("/get-my-media") {
