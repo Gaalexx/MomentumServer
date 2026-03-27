@@ -29,6 +29,7 @@ import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
 import java.time.Duration
 import java.util.UUID
@@ -138,7 +139,7 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
             println("1.1")
             val userId = UUID.fromString(principal.subject)
             println("1.2")
-            val listOfFriends = Friendships.getFriendsWithDetails(userId)
+            val listOfFriends = transaction {Friendships.getFriendsWithDetails(userId)}
             val listToSend: MutableList<PostDTO> = mutableListOf()
             println("1.3")
 
