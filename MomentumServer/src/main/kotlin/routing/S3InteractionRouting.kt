@@ -133,7 +133,7 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
         }
 
         post("/get-friends-media") {
-
+            println("1")
             val principal = call.principal<JWTPrincipal>() ?: return@post call.respond(HttpStatusCode.Unauthorized)
 
             val userId = UUID.fromString(principal.subject)
@@ -146,32 +146,34 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
                     listOfPosts.add(post)
                 }
             }
-
+            println("2")
             val listToSend: MutableList<PostDTO> = mutableListOf()
             val avatarsHashMap: HashMap<UUID, Pair<User, String?>> = hashMapOf()
 
             listOfPosts.forEach { it ->
                 val media = MediaTable.getObjectKeyOfPost(it.mediaId)
-                if(avatarsHashMap.containsKey(it.userId)){
-                    if(media != null){
+                if(media != null){
+                    println("3")
+                    if(avatarsHashMap.containsKey(it.userId)){
                         val presignedURL = S3Client.getPresignedObjectUrl(media)
                         listToSend.add(PostDTO(it.id.toString(), it.userId.toString(), userName = avatarsHashMap[it.userId]?.first?.username ?: avatarsHashMap[it.userId]!!.first.email, it.title, it.inUse, presignedURL,
-                            avatarsHashMap[it.userId]?.second, it.createdAt))
+                                avatarsHashMap[it.userId]?.second, it.createdAt))
+
                     }
-                }
-                else{
-                    val user = UserModel.getFullUser(it.userId)
-                    if(user != null){
-                        val presignedAvatarURL = getAvatarURL(it.userId)
+                    else{
+                        val user = UserModel.getFullUser(it.userId)
+                        if(user != null){
+                            val presignedAvatarURL = getAvatarURL(it.userId)
 
-                        avatarsHashMap[it.userId] = Pair(user, presignedAvatarURL)
+                            avatarsHashMap[it.userId] = Pair(user, presignedAvatarURL)
 
-                        if(media != null){
                             val presignedURL = S3Client.getPresignedObjectUrl(media)
                             listToSend.add(PostDTO(it.id.toString(), it.userId.toString(), userName = user.username ?: user.email, it.title, it.inUse, presignedURL, presignedAvatarURL, it.createdAt))
+
                         }
                     }
                 }
+
             }
 
             call.respond(listToSend)
