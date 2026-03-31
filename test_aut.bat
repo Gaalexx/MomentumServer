@@ -123,3 +123,15 @@ echo curl -X DELETE http://localhost/api/momentum/friends/FRIEND_ID -H "Authoriz
 echo.
 echo curl -X PATCH http://localhost/api/momentum/friends/request/REQUEST_ID/reject -H "Authorization: Bearer !ACCESS_TOKEN!"
 echo.
+echo curl -X POST http://localhost/api/momentum/get-my-media -H "Authorization: Bearer !ACCESS_TOKEN!"
+echo.
+::get presigned url
+echo curl -X POST http://localhost/api/momentum/upload -H "Content-Type: application/json" -H "Authorization: Bearer !ACCESS_TOKEN!" -d "{\"mimeType\":\"image/jpeg\",\"mediaType\":\"IMAGE\",\"size\":1024000,\"durationMs\":null}"
+echo.
+::download by presigned url
+echo curl -X PUT "urlToLoad" -H "Content-Type: image/jpeg" --upload-file "C:\path\to\image.jpg"
+echo.
+echo curl -X POST http://localhost/api/momentum/status-upload -H "Content-Type: application/json" -H "Authorization: Bearer !ACCESS_TOKEN!" -d "{\"status\":\"READY\",\"mediaId\":\"MEDIA_ID\",\"title\":\"My post\"}"
+echo.
+echo curl -X DELETE http://localhost/api/momentum/post/MEDIA_ID(POST_ID FROM GET_MY_MEDIA) -H "Authorization: Bearer !ACCESS_TOKEN!"
+echo.

@@ -8,6 +8,8 @@ import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.javatime.timestampWithTimeZone
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.deleteWhere
 import java.util.UUID
 
 data class PostModel(
@@ -56,5 +58,44 @@ object PostsTable : Table("posts") {
                     )
                 }
         }
+
+    fun deletePost(postId: UUID): Boolean = transaction {
+        val rowsDeleted = PostsTable.deleteWhere { PostsTable.id eq postId }
+        rowsDeleted > 0
+    }
+
+    fun getPostById(postId: UUID): PostModel? = transaction {
+        PostsTable
+            .selectAll()
+            .where { PostsTable.id eq postId }
+            .map { row ->
+                PostModel(
+                    id = row[PostsTable.id],
+                    userId = row[PostsTable.userId],
+                    title = row[PostsTable.text] ?: "",
+                    inUse = row[PostsTable.inUse],
+                    createdAt = row[PostsTable.createdAt].toString(),
+                    mediaId = row[PostsTable.mediaId]
+                )
+            }
+            .singleOrNull()
+    }
+
+    fun getPostByMediaId(mediaId: UUID): PostModel? = transaction {
+        PostsTable
+            .selectAll()
+            .where { PostsTable.mediaId eq mediaId }
+            .map { row ->
+                PostModel(
+                    id = row[PostsTable.id],
+                    userId = row[PostsTable.userId],
+                    title = row[PostsTable.text] ?: "",
+                    inUse = row[PostsTable.inUse],
+                    createdAt = row[PostsTable.createdAt].toString(),
+                    mediaId = row[PostsTable.mediaId]
+                )
+            }
+            .singleOrNull()
+    }
 
 }

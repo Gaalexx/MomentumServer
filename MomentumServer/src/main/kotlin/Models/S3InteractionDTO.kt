@@ -43,3 +43,11 @@ data class PostDTO(
     val avatarPresignedURL: String? = null,
     val createdAt: String? = null)
 
+@Serializable
+data class DeletePostResponseDTO(
+    val success: Boolean,
+    val message: String,
+    val s3Deleted: Boolean,
+    val postId: String? = null
+)
+

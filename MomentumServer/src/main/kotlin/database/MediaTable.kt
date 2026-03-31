@@ -1,5 +1,6 @@
 package com.example.database
 
+import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.Table
@@ -8,6 +9,7 @@ import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
 import java.util.UUID
+
 
 enum class UploadingStatus(val value: String) {
     UPLOADING("UPLOADING"),
@@ -75,4 +77,27 @@ object MediaTable : Table(name = "media") {
                 .singleOrNull()
         }
 
+    fun deleteMedia(mediaId: UUID): Boolean = transaction {
+        val rowsDeleted = MediaTable.deleteWhere { MediaTable.id eq mediaId }
+        rowsDeleted > 0
+    }
+
+    fun getMediaById(mediaId: UUID): MediaModel? = transaction {
+        MediaTable
+            .selectAll()
+            .where { MediaTable.id eq mediaId }
+            .map { row ->
+                MediaModel(
+                    id = row[MediaTable.id],
+                    userId = row[MediaTable.userId],
+                    mediaType = MediaType.valueOf(row[MediaTable.mediaType]),
+                    mimeType = row[MediaTable.mimeType],
+                    status = UploadingStatus.valueOf(row[MediaTable.status].uppercase()),
+                    objectKey = row[MediaTable.objectKey],
+                    sizeBytes = row[MediaTable.sizeBytes],
+                    duration = row[MediaTable.durationMs]
+                )
+            }
+            .singleOrNull()
+    }
 }

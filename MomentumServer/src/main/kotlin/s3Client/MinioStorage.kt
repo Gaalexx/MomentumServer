@@ -14,6 +14,7 @@ interface Storage{
     fun putObjectBytes(key: String, bytes: ByteArray, contentType: String = "application/octet-stream")
     fun presignPutUrl(key: String, expires: Duration = Duration.ofMinutes(2)): String
     fun getPresignedObjectUrl(objectKey: String, expiresInMinutes: Int = 15): String
+    fun deleteObject(key: String)
 }
 
 class MinioStorage(
@@ -66,6 +67,20 @@ class MinioStorage(
                 .build()
         )
     }
+
+    override fun deleteObject(key: String) {
+        try {
+            minio.removeObject(
+                RemoveObjectArgs.builder()
+                    .bucket(bucket)
+                    .`object`(key)
+                    .build()
+            )
+        } catch (e: Exception) {
+            throw StorageException("Failed to delete object from S3: ${e.message}", e)
+        }
+    }
 }
 
+class StorageException(message: String, cause: Throwable? = null) : Exception(message, cause)
 object S3Client : Storage by MinioStorage()
