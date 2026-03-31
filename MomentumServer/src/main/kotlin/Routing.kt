@@ -7,6 +7,7 @@ import com.example.routing.accountRoutes
 import com.example.routing.authRoutes
 import com.example.routing.friendsRoutes
 import com.example.routing.s3Routes
+import com.example.routing.usersInfoRouting
 import com.example.s3Client.MinioStorage
 import com.example.s3Client.testMinioUpload
 import com.example.tokens.JwtService
@@ -57,6 +58,11 @@ fun Application.configureRouting(jwtService: JwtService) {
                     call.respond("Hello Momentum!")
                 }
                 friendsRoutes(jwtService)
+
+
+                route("/users"){
+                    usersInfoRouting(jwtService)
+                }
             }
         }
         get("/"){
