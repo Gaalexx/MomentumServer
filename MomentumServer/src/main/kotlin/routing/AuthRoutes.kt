@@ -12,36 +12,6 @@ import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import kotlinx.serialization.Serializable
-
-@Serializable
-data class UserInfo(
-    val username: String,
-    val password: String
-)
-
-@Serializable
-data class SendCodeRequestDTO(
-    val email: String
-)
-
-@Serializable
-data class SendCodeResponseDTO(
-    val success: Boolean,
-    val message: String,
-    val code: String? = null
-)
-
-@Serializable
-data class LogoutRequestDTO(
-    val refreshToken: String
-)
-
-@Serializable
-data class LogoutResponseDTO(
-    val success: Boolean,
-    val message: String
-)
 
 fun Route.authRoutes(jwtService: JwtService) {
     val jwtConfig = environment.config.config("jwt")
