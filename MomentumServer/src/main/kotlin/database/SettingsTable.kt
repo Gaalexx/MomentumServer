@@ -2,6 +2,7 @@ package com.example.database
 
 import com.example.Models.ServerSettingsStateDTO
 import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
@@ -73,6 +74,19 @@ object SettingsTable : Table(name = "settings") {
                     )
                 }
                 .singleOrNull()
+        }
+    }
+
+    fun createDefaultSettings(curUserId: UUID){
+        return transaction{
+            insert {
+                it[userId] = curUserId
+                it[inAppNotifications] = false
+                it[publicationsEnabled] = false
+                it[reactionsEnabled] = false
+                it[recommendToContacts] = false
+                it[allowAddFromAnyone] = false
+            }
         }
     }
 }

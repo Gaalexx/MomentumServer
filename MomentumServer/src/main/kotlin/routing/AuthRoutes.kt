@@ -5,6 +5,7 @@ import com.example.Models.*
 import com.example.data.codestorage.CodeStorage
 import com.example.data.emailsender.EmailSender
 import com.example.database.SessionTable
+import com.example.database.SettingsTable
 import com.example.database.UserModel
 import com.example.tokens.JwtService
 import com.example.tokens.RefreshTokenGenerator
@@ -12,6 +13,7 @@ import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import java.util.UUID
 
 fun Route.authRoutes(jwtService: JwtService) {
     val jwtConfig = environment.config.config("jwt")
@@ -214,6 +216,7 @@ fun Route.authRoutes(jwtService: JwtService) {
     post("/register") {
         val body = call.receive<RegisterUserRequestDTO>()
         val token: String
+        val uid: UUID
         if (body.email == null && body.phone == null) {
             call.respond(HttpStatusCode.BadRequest)
             return@post
@@ -221,19 +224,21 @@ fun Route.authRoutes(jwtService: JwtService) {
         else if (body.phone == null && body.email != null){
             token = RefreshTokenGenerator.generate()
 
-            val uid = UserModel.registerNewUserWithEmail(body.email, body.password)
+            uid = UserModel.registerNewUserWithEmail(body.email, body.password)
             SessionTable.addNewSession(uid, token, body.deviceInfo)
         }
         else if (body.email == null && body.phone != null) {
             token = RefreshTokenGenerator.generate()
 
-            val uid = UserModel.registerNewUserWithPhone(body.phone, body.password)
+            uid = UserModel.registerNewUserWithPhone(body.phone, body.password)
             SessionTable.addNewSession(uid, token, body.deviceInfo)
         }
         else{
             call.respond(HttpStatusCode.BadRequest)
             return@post
         }
+
+        SettingsTable.createDefaultSettings(uid)
 
         call.respond(HttpStatusCode.OK, LoginResponseDTO(token))
     }
