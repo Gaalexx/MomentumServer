@@ -131,11 +131,11 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
             listOfFriends.forEach { friend ->
                 val posts = PostsTable.getPostsOfUser(UUID.fromString(friend.userId))
                 posts.forEach { post ->
-                    val media = MediaTable.getMediaById(post.mediaId)
+                    val media = MediaTable.getObjectKeyOfPost(post.mediaId)
                     if(media != null){
-                        val presignedURL = S3Client.getPresignedObjectUrl(media.objectKey)
+                        val presignedURL = S3Client.getPresignedObjectUrl(media)
                         listToSend.add(PostDTO(post.id.toString(), post.userId.toString(), userName = friend.username,
-                            title = post.title, inUse = post.inUse, presignedURL = presignedURL, avatarPresignedURL = friend.userAvatarUrl, createdAt = post.createdAt, mediaType = media.mediaType,))
+                            title = post.title, inUse = post.inUse, presignedURL = presignedURL, avatarPresignedURL = friend.userAvatarUrl, createdAt = post.createdAt))
                     }
                 }
             }
@@ -156,10 +156,10 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
             val listToSend: MutableList<PostDTO> = mutableListOf()
             if(user != null){
                 listOfPosts.forEach { it ->
-                    val media = MediaTable.getMediaById(it.mediaId)
+                    val media = MediaTable.getObjectKeyOfPost(it.mediaId)
                     if(media != null){
-                        val presignedURL = S3Client.getPresignedObjectUrl(media.objectKey)
-                        listToSend.add(PostDTO(it.id.toString(), it.userId.toString(), userName = user.username ?: user.email, it.title, it.inUse, presignedURL, avatarPresignedURL = presignedAvatarURL, createdAt = it.createdAt, mediaType = media.mediaType,))
+                        val presignedURL = S3Client.getPresignedObjectUrl(media)
+                        listToSend.add(PostDTO(it.id.toString(), it.userId.toString(), userName = user.username ?: user.email, it.title, it.inUse, presignedURL, presignedAvatarURL, it.createdAt))
                     }
                 }
             }
