@@ -103,6 +103,55 @@ fun Route.friendsRoutes(jwtService: JwtService) {
             }
         }
 
+
+        post("/friends/request/by-name") {
+            val principal = call.principal<JWTPrincipal>()
+            val fromUserId = principal?.payload?.subject
+                ?: return@post call.respond(HttpStatusCode.Unauthorized, "Invalid token")
+
+            val request = call.receive<FriendRequestCreateByEmailDTO>()
+
+            try {
+                val toUserId = UserModel.getIdByUserName(request.email)
+                    ?: return@post call.respond(
+                        HttpStatusCode.NotFound,
+                        FriendRequestActionDTO(false, "User with this email not found")
+                    )
+
+                val fromUUID = UUID.fromString(fromUserId)
+
+                if (fromUUID == toUserId) {
+                    return@post call.respond(
+                        HttpStatusCode.BadRequest,
+                        FriendRequestActionDTO(false, "Cannot send friend request to yourself")
+                    )
+                }
+
+                val result = transaction {
+                    FriendRequests.createOrProcessRequest(fromUUID, toUserId, ::orderedFriendPair)
+                }
+
+                val message = when (result.action) {
+                    "ALREADY_SENT" -> "Friend request already sent"
+                    "MIRROR_ACCEPTED" -> "Friend request accepted (mutual)"
+                    "RESENT" -> "Friend request re-sent successfully"
+                    "ALREADY_FRIENDS" -> "You are already friends"
+                    else -> "Friend request sent successfully"
+                }
+
+                call.respond(
+                    HttpStatusCode.Created,
+                    FriendRequestActionDTO(true, message, result.requestId.toString())
+                )
+
+            } catch (e: Exception) {
+                call.respond(
+                    HttpStatusCode.InternalServerError,
+                    FriendRequestActionDTO(false, "Failed to send friend request: ${e.message}")
+                )
+            }
+        }
+
         get("/friends/requests/incoming") {
             val principal = call.principal<JWTPrincipal>()
             val userId = principal?.payload?.subject
