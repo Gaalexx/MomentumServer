@@ -106,6 +106,7 @@ fun Route.friendsRoutes(jwtService: JwtService) {
 
         post("/friends/request/by-name") {
             val principal = call.principal<JWTPrincipal>()
+
             val fromUserId = principal?.payload?.subject
                 ?: return@post call.respond(HttpStatusCode.Unauthorized, "Invalid token")
 
