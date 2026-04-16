@@ -69,8 +69,12 @@ data class FriendRequestUpdateDTO(
 data class FriendshipResponseDTO(
     val userId: String,
     val username: String,
+    val email: String,
     val friendsSince: String,
-    val userAvatarUrl: String? = null
+    val phoneNumber: String? = null,
+    val description: String? = null,
+    val userAvatarUrl: String? = null,
+    val hasPremium: Boolean = false
 )
 
 @Serializable
