@@ -4,8 +4,12 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class AccountInformationDTO(
+    val userId: String,
+    val email: String,
     val name: String,
-    val accountPhotoURL: String?
+    val phone: String?,
+    val profilePhotoURL: String?,
+    val hasPremium: Boolean
 )
 
 @Serializable

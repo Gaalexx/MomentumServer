@@ -125,19 +125,33 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
             val principal = call.principal<JWTPrincipal>() ?: return@post call.respond(HttpStatusCode.Unauthorized)
             val userId = UUID.fromString(principal.subject)
 
-            val listOfFriends = transaction {Friendships.getFriendsWithDetails(userId)}
-            val listToSend: MutableList<PostDTO> = mutableListOf()
+            val listToSend = transaction {
+                val listOfFriends = Friendships.getFriendsWithDetails(userId).toList()
+                val result = mutableListOf<PostDTO>()
 
-            listOfFriends.forEach { friend ->
-                val posts = PostsTable.getPostsOfUser(UUID.fromString(friend.userId))
-                posts.forEach { post ->
-                    val media = MediaTable.getMediaById(post.mediaId)
-                    if(media != null){
-                        val presignedURL = S3Client.getPresignedObjectUrl(media.objectKey)
-                        listToSend.add(PostDTO(post.id.toString(), post.userId.toString(), userName = friend.username,
-                            title = post.title, inUse = post.inUse, presignedURL = presignedURL, avatarPresignedURL = friend.userAvatarUrl, createdAt = post.createdAt, mediaType = media.mediaType,))
+
+                listOfFriends.forEach { friend ->
+                    val posts = PostsTable.getPostsOfUser(UUID.fromString(friend.userId))
+                    posts.forEach { post ->
+                        val media = MediaTable.getMediaById(post.mediaId)
+                        if(media != null){
+                            val presignedURL = S3Client.getPresignedObjectUrl(media.objectKey)
+                            result.add(PostDTO(
+                                post.id.toString(),
+                                post.userId.toString(),
+                                userName = friend.username,
+                                title = post.title,
+                                inUse = post.inUse,
+                                presignedURL = presignedURL,
+                                avatarPresignedURL = friend.userAvatarUrl,
+                                createdAt = post.createdAt,
+                                mediaType = media.mediaType,
+                                )
+                            )
+                        }
                     }
                 }
+                result
             }
 
             call.respond(HttpStatusCode.OK, listToSend)

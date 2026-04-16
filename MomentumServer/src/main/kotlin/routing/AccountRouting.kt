@@ -29,10 +29,28 @@ fun Route.accountRoutes(jwtService: JwtService) {
             val user = UserModel.getFullUser(usedId)
             if(user != null) {
                 if(user.username == null){
-                    call.respond(HttpStatusCode.OK, AccountInformationDTO(user.email, getAvatarURL(user.id))) // TODO обавить логику с урлом аватарки
+                    call.respond(HttpStatusCode.OK,
+                        AccountInformationDTO(
+                            user.id.toString(),
+                            user.email,
+                            user.email,
+                            user.phoneNumber,
+                            getAvatarURL(user.id),
+                            user.hasPremium
+                        )
+                    ) // TODO обавить логику с урлом аватарки
                 }
                 else{
-                    call.respond(HttpStatusCode.OK, AccountInformationDTO(user.username, getAvatarURL(user.id))) // TODO обавить логику с урлом аватарки
+                    call.respond(HttpStatusCode.OK,
+                        AccountInformationDTO(
+                            user.id.toString(),
+                            user.email,
+                            user.username,
+                            user.phoneNumber,
+                            getAvatarURL(user.id),
+                            user.hasPremium
+                        )
+                    ) // TODO обавить логику с урлом аватарки
                 }
             }
             else{

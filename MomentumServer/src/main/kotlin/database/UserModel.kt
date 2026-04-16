@@ -2,6 +2,8 @@ package com.example.database
 
 import com.example.data.hashers.IHasher
 import com.example.data.hashers.PasswordHasher
+import org.jetbrains.exposed.sql.Alias
+import org.jetbrains.exposed.sql.Op
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.deleteWhere
@@ -14,7 +16,10 @@ import org.jetbrains.exposed.sql.update
 import java.time.LocalDateTime
 import org.mindrot.jbcrypt.BCrypt
 import org.jetbrains.exposed.sql.ResultRow
-
+import org.jetbrains.exposed.sql.SqlExpressionBuilder
+import org.jetbrains.exposed.sql.exists
+import org.jetbrains.exposed.sql.select
+import org.jetbrains.exposed.sql.selectAll
 
 
 data class User(
@@ -54,16 +59,31 @@ object UserModel : Table("users") {
         return this[UserModel.username] ?: this[UserModel.email]
     }
 
-    fun extractUsername(row: ResultRow): String? {
-        return row[username]
-    }
+    fun extractUsername(row: ResultRow, alias: Alias<UserModel>? = null): String? =
+        row[alias?.get(username) ?: username]
 
-    fun extractEmail(row: ResultRow): String {
-        return row[email]
-    }
+    fun extractEmail(row: ResultRow, alias: Alias<UserModel>? = null): String =
+        row[alias?.get(email) ?: email]
 
-    fun getDisplayNameFromRow(row: ResultRow): String {
-        return row[username] ?: row[email]
+    fun extractPhoneNumber(row: ResultRow, alias: Alias<UserModel>? = null): String? =
+        row[alias?.get(telephone) ?: telephone]
+
+    fun extractHasPremium(row: ResultRow, alias: Alias<UserModel>? = null): Boolean =
+        row[alias?.get(hasPremium) ?: hasPremium]
+
+    fun getDisplayNameFromRow(row: ResultRow, alias: Alias<UserModel>? = null): String =
+        if (alias == null) {
+            row[username] ?: row[email]
+        } else {
+            row[alias[username]] ?: row[alias[email]]
+        }
+
+    fun existsUserById(userId: UUID): Boolean {
+        return transaction {
+            !UserModel
+                .selectAll().where { UserModel.id eq userId }
+                .empty()
+        }
     }
 
     fun findIdByEmail(email: String): UUID? {
