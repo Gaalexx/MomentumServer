@@ -362,66 +362,45 @@ object Friendships : Table("friendships") {
     }
 
     fun getFriendsWithDetails(userId: UUID): List<FriendshipResponseDTO> {
-//        val friends1 = join(UserModel, JoinType.INNER,
-//            onColumn = Friendships.userId2,
-//            otherColumn = UserModel.id)
-//            .selectAll()
-//            .where { Friendships.userId1 eq userId }
-//            .map { row ->
-//                val friendId = row[UserModel.id]
-//                FriendshipResponseDTO(
-//                    userId = friendId.toString(),
-//                    username = UserModel.getDisplayNameFromRow(row),
-//                    friendsSince = row[Friendships.createdAt].toInstant(ZoneOffset.UTC).toString(),
-//                    userAvatarUrl = getAvatarURL(friendId)
-//                )
-//            }
-//
-//        val friends2 = join(UserModel, JoinType.INNER,
-//            onColumn = Friendships.userId1,
-//            otherColumn = UserModel.id)
-//            .selectAll()
-//            .where { Friendships.userId2 eq userId }
-//            .map { row ->
-//                val friendId = row[UserModel.id]
-//                FriendshipResponseDTO(
-//                    userId = friendId.toString(),
-//                    username = UserModel.getDisplayNameFromRow(row),
-//                    friendsSince = row[Friendships.createdAt].toInstant(ZoneOffset.UTC).toString(),
-//                    userAvatarUrl = getAvatarURL(friendId)
-//                )
-//            }
-//
-//        return (friends1 + friends2).sortedByDescending { it.friendsSince }
-
-        val friendProfile = UserModel.alias("friend_profile")
-
-        val friends = Friendships
-            .join(
-                UserModel,
-                JoinType.INNER,
-                onColumn =
-                    ((userId1 eq userId) and (userId2 eq friendProfile[UserModel.id])) or
-                    ((userId2 eq userId) and (userId1 eq friendProfile[UserModel.id]))
-            )
-            .selectAll().where { (userId1 eq userId) or (userId2 eq userId) }
-            .orderBy(createdAt to SortOrder.DESC)
+        val friends1 = join(UserModel, JoinType.INNER,
+            onColumn = Friendships.userId2,
+            otherColumn = UserModel.id)
+            .selectAll()
+            .where { Friendships.userId1 eq userId }
             .map { row ->
-                val friendId = row[friendProfile[UserModel.id]]
+                val friendId = row[UserModel.id]
                 FriendshipResponseDTO(
                     userId = friendId.toString(),
-                    username = UserModel.getDisplayNameFromRow(row, friendProfile),
-                    email = UserModel.extractEmail(row, friendProfile),
-                    phoneNumber = UserModel.extractPhoneNumber(row, friendProfile),
-                    friendsSince = row[createdAt].toInstant(ZoneOffset.UTC).toString(),
+                    username = UserModel.getDisplayNameFromRow(row),
+                    email = UserModel.extractEmail(row),
+                    phoneNumber = UserModel.extractPhoneNumber(row),
+                    friendsSince = row[Friendships.createdAt].toInstant(ZoneOffset.UTC).toString(),
                     userAvatarUrl = getAvatarURL(friendId),
-                    hasPremium = UserModel.extractHasPremium(row, friendProfile)
+                    hasPremium = UserModel.extractHasPremium(row)
                 )
             }
 
+        val friends2 = join(UserModel, JoinType.INNER,
+            onColumn = Friendships.userId1,
+            otherColumn = UserModel.id)
+            .selectAll()
+            .where { Friendships.userId2 eq userId }
+            .map { row ->
+                val friendId = row[UserModel.id]
+                FriendshipResponseDTO(
+                    userId = friendId.toString(),
+                    username = UserModel.getDisplayNameFromRow(row),
+                    email = UserModel.extractEmail(row),
+                    phoneNumber = UserModel.extractPhoneNumber(row),
+                    friendsSince = row[Friendships.createdAt].toInstant(ZoneOffset.UTC).toString(),
+                    userAvatarUrl = getAvatarURL(friendId),
+                    hasPremium = UserModel.extractHasPremium(row)
+                )
+            }
 
-        return friends
+        return (friends1 + friends2).sortedByDescending { it.friendsSince }
     }
+
 
     fun deleteFriendshipAndUpdateRequest(userUUID: UUID, friendUUID: UUID): String {
         val (id1, id2) = if (userUUID < friendUUID) userUUID to friendUUID else friendUUID to userUUID
