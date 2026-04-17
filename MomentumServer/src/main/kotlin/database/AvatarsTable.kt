@@ -21,12 +21,16 @@ data class AvatarsModel(
 )
 
 fun getAvatarURL(id: UUID): String? {
-    val user = UserModel.getFullUser(id)
-    if(user != null && user.avatarId != null){
-        val key = AvatarsTable.getObjectKeyOfAvatar(user.avatarId)
-        if(key != null){
-            return S3Client.getPresignedObjectUrl(key)
-        }
+//    val user = UserModel.getFullUser(id)
+//    if(user != null && user.avatarId != null){
+//        val key = AvatarsTable.getObjectKeyOfAvatar(user.avatarId)
+//        if(key != null){
+//            return S3Client.getPresignedObjectUrl(key)
+//        }
+//    }
+    val key = AvatarsTable.getObjectKeyOfActiveAvatar(id)
+    if(key != null){
+        return S3Client.getPresignedObjectUrl(key)
     }
     return null
 }
