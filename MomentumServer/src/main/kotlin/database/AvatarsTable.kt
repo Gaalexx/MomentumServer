@@ -50,7 +50,7 @@ object AvatarsTable : Table(name = "avatars") {
         transaction {
             if (avatar.isActive) {
                 AvatarsTable.update({
-                    (AvatarsTable.userId) eq userId and (AvatarsTable.isActive eq true)
+                    (AvatarsTable.userId) eq avatar.userId and (AvatarsTable.isActive eq true)
                 }) {
                     it[isActive] = false
                 }
