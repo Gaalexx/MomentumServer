@@ -203,9 +203,9 @@ object UserModel : Table("users") {
     fun updateFullUser(userId: UUID, login: String?, email: String?, phoneNumber: String?) {
         transaction {
             UserModel.update({ UserModel.id eq userId }) {
-                if (login != null) it[this.username] = login
-                if (email != null) it[this.email] = email
-                if (phoneNumber != null) it[this.telephone] = phoneNumber
+                if (!login.isNullOrBlank()) it[this.username] = login
+                if (!email.isNullOrBlank()) it[this.email] = email
+                if (!phoneNumber.isNullOrBlank()) it[this.telephone] = phoneNumber
             }
         }
     }
