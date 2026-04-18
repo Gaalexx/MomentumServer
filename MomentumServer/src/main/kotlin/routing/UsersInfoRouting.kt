@@ -80,7 +80,7 @@ fun Route.usersInfoRouting(jwtService: JwtService){
     }
     route("/get-info"){
         get("/id/{id}"){
-            val principal = call.principal<JWTPrincipal>() ?: return@get call.respond(HttpStatusCode.Unauthorized)
+            //val principal = call.principal<JWTPrincipal>() ?: return@get call.respond(HttpStatusCode.Unauthorized)
             val id = call.parameters["id"]
                 ?: return@get call.respond(
                     HttpStatusCode.BadRequest
