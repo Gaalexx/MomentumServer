@@ -1,5 +1,6 @@
 package com.example.database
 
+import com.example.Models.AvatarsModel
 import com.example.s3Client.S3Client
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.Table
@@ -10,24 +11,7 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
 import java.util.UUID
 
-data class AvatarsModel(
-    val id: UUID = UUID.randomUUID(),
-    val userId: UUID,
-    val mimeType: String,
-    val status: UploadingStatus? = null,
-    val isActive: Boolean = false,
-    val objectKey: String,
-    val sizeBytes: Long,
-)
-
 fun getAvatarURL(id: UUID): String? {
-//    val user = UserModel.getFullUser(id)
-//    if(user != null && user.avatarId != null){
-//        val key = AvatarsTable.getObjectKeyOfAvatar(user.avatarId)
-//        if(key != null){
-//            return S3Client.getPresignedObjectUrl(key)
-//        }
-//    }
     val key = AvatarsTable.getObjectKeyOfActiveAvatar(id)
     if(key != null){
         return S3Client.getPresignedObjectUrl(key)
@@ -50,7 +34,7 @@ object AvatarsTable : Table(name = "avatars") {
         transaction {
             if (avatar.isActive) {
                 AvatarsTable.update({
-                    (AvatarsTable.userId) eq userId and (AvatarsTable.isActive eq true)
+                    (AvatarsTable.userId eq userId) and (AvatarsTable.isActive eq true)
                 }) {
                     it[isActive] = false
                 }
@@ -70,13 +54,13 @@ object AvatarsTable : Table(name = "avatars") {
     fun reactivateAvatar(avatarId: UUID, userId: UUID) {
         transaction {
             AvatarsTable.update({
-                (AvatarsTable.userId) eq userId and (AvatarsTable.isActive eq true)
+                (AvatarsTable.userId eq userId) and (AvatarsTable.isActive eq true)
             }) {
                 it[isActive] = false
             }
 
             AvatarsTable.update({
-                (AvatarsTable.userId) eq userId and (AvatarsTable.id eq avatarId)
+                (AvatarsTable.userId eq userId) and (AvatarsTable.id eq avatarId)
             }) {
                 it[isActive] = true
             }
