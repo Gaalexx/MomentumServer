@@ -81,13 +81,11 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
 
             val body = call.receive<S3UpdateStatusDTO>()
 
-            val userId = UUID.fromString(principal.subject)
             val avatarId = UUID.fromString(body.mediaId)
 
             when(body.status){
                 UploadingStatus.READY -> {
                     AvatarsTable.changeStatus(avatarId, body.status)
-                    UserModel.updateAvatar(userId, avatarId)
                 }
                 UploadingStatus.UPLOADING -> null // TODO продумать эти случаи
                 UploadingStatus.FAILED -> AvatarsTable.deleteAvatar(avatarId)
