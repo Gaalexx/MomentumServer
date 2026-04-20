@@ -1,0 +1,5 @@
+ALTER TABLE IF EXISTS public.users
+    DROP CONSTRAINT IF EXISTS fk_users_avatar;
+
+ALTER TABLE IF EXISTS public.users
+    DROP COLUMN IF EXISTS avatar_id CASCADE;
