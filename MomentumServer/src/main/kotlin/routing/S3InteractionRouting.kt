@@ -134,18 +134,31 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
                     val posts = PostsTable.getPostsOfUser(UUID.fromString(friend.userId))
                     posts.forEach { post ->
                         val media = MediaTable.getMediaById(post.mediaId)
+                        val reactions = ReactionsTable.getAllPostReactions(post.id)
+
                         if(media != null){
                             val presignedURL = S3Client.getPresignedObjectUrl(media.objectKey)
-                            result.add(PostDTO(
-                                post.id.toString(),
-                                post.userId.toString(),
-                                userName = friend.username,
-                                title = post.title,
-                                inUse = post.inUse,
-                                presignedURL = presignedURL,
-                                avatarPresignedURL = friend.userAvatarUrl,
-                                createdAt = post.createdAt,
-                                mediaType = media.mediaType,
+                            result.add(
+                                PostDTO(
+                                    post.id.toString(),
+                                    post.userId.toString(),
+                                    userName = friend.username,
+                                    title = post.title,
+                                    inUse = post.inUse,
+                                    presignedURL = presignedURL,
+                                    avatarPresignedURL = friend.userAvatarUrl,
+                                    createdAt = post.createdAt,
+                                    mediaType = media.mediaType,
+                                    reactions = reactions.groupBy(
+                                        keySelector = { it.reactionType },
+                                        valueTransform = { it.userId.toString() }
+                                    ).map { (key, value) ->
+                                        ReactionsDTO(
+                                            emoji = key,
+                                            count = value.size,
+                                            users = value
+                                        )
+                                    }
                                 )
                             )
                         }
@@ -171,9 +184,33 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
             if(user != null){
                 listOfPosts.forEach { it ->
                     val media = MediaTable.getMediaById(it.mediaId)
+                    val reactions = ReactionsTable.getMyPostReactions(userId, it.id)
+
                     if(media != null){
                         val presignedURL = S3Client.getPresignedObjectUrl(media.objectKey)
-                        listToSend.add(PostDTO(it.id.toString(), it.userId.toString(), userName = user.username ?: user.email, it.title, it.inUse, presignedURL, avatarPresignedURL = presignedAvatarURL, createdAt = it.createdAt, mediaType = media.mediaType,))
+                        listToSend.add(
+                            PostDTO(
+                                id = it.id.toString(),
+                                userId = it.userId.toString(),
+                                userName = user.username ?: user.email,
+                                title = it.title,
+                                inUse = it.inUse,
+                                presignedURL = presignedURL,
+                                avatarPresignedURL = presignedAvatarURL,
+                                createdAt = it.createdAt,
+                                mediaType = media.mediaType,
+                                reactions = reactions.groupBy(
+                                        keySelector = { it.reactionType },
+                                        valueTransform = { it.userId.toString() }
+                                    ).map { (key, value) ->
+                                        ReactionsDTO(
+                                            emoji = key,
+                                            count = value.size,
+                                            users = value
+                                        )
+                                    }
+                            )
+                        )
                     }
                 }
             }

@@ -3,6 +3,7 @@ package com.example.Models
 import com.example.database.MediaType
 import com.example.database.UploadingStatus
 import kotlinx.serialization.Serializable
+import java.util.UUID
 
 @Serializable
 data class UploadInfoDTO(
@@ -31,6 +32,13 @@ data class PresignedURLDTO(
     val mediaId: String
 )
 
+@Serializable
+data class ReactionsDTO(
+    val emoji: String,
+    val count: Int,
+    val users: List<String>
+)
+
 
 @Serializable
 data class PostDTO(
@@ -41,8 +49,10 @@ data class PostDTO(
     val inUse: Boolean,
     val presignedURL: String,
     val mediaType: MediaType,
+    val reactions: List<ReactionsDTO>,
     val avatarPresignedURL: String? = null,
-    val createdAt: String? = null)
+    val createdAt: String? = null
+)
 
 @Serializable
 data class DeletePostResponseDTO(
