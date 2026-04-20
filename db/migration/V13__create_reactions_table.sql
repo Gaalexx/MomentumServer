@@ -15,4 +15,4 @@ CREATE TABLE IF NOT EXISTS public.reactions
     ON DELETE CASCADE
     );
 
-ALTER TABLE public.avatars OWNER to app;
+ALTER TABLE public.reactions OWNER to app;
