@@ -35,7 +35,7 @@ object ReactionsTable : Table(name = "reactions") {
         }
     }
 
-    fun getAllPostReactions(postId: UUID): List<ReactionsModel> = transaction {
+    fun getMyPostReactions(postId: UUID): List<ReactionsModel> = transaction {
             ReactionsTable
                 .selectAll()
                 .where { ReactionsTable.postId eq postId }
@@ -50,7 +50,7 @@ object ReactionsTable : Table(name = "reactions") {
                 }
         }
 
-    fun getMyPostReactions(userId: UUID, postId: UUID): List<ReactionsModel> = transaction {
+    fun getAllPostReactions(userId: UUID, postId: UUID): List<ReactionsModel> = transaction {
             ReactionsTable
                 .selectAll()
                 .where { (ReactionsTable.postId eq postId) and (ReactionsTable.userId eq userId) }

@@ -132,7 +132,7 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
                     val posts = PostsTable.getPostsOfUser(UUID.fromString(friend.userId))
                     posts.forEach { post ->
                         val media = MediaTable.getMediaById(post.mediaId)
-                        val reactions = ReactionsTable.getAllPostReactions(post.id)
+                        val reactions = ReactionsTable.getAllPostReactions(userId, post.id)
 
                         if(media != null){
                             val presignedURL = S3Client.getPresignedObjectUrl(media.objectKey)
@@ -182,7 +182,7 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
             if(user != null){
                 listOfPosts.forEach { it ->
                     val media = MediaTable.getMediaById(it.mediaId)
-                    val reactions = ReactionsTable.getMyPostReactions(userId, it.id)
+                    val reactions = ReactionsTable.getMyPostReactions(it.id)
 
                     if(media != null){
                         val presignedURL = S3Client.getPresignedObjectUrl(media.objectKey)
