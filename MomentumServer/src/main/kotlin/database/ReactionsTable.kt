@@ -65,9 +65,13 @@ object ReactionsTable : Table(name = "reactions") {
                 }
         }
 
-    fun deleteReaction(reactionId: UUID) {
+    fun deleteReaction(userId: UUID, postId: UUID, reactionType: String) {
         transaction {
-            ReactionsTable.deleteWhere { ReactionsTable.id eq reactionId }
+            ReactionsTable.deleteWhere {
+                (ReactionsTable.userId eq userId) and 
+                (ReactionsTable.postId eq postId) and
+                (ReactionsTable.reactionType eq reactionType)
+            }
         }
     }
 }
