@@ -153,7 +153,6 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
                                     ).map { (key, value) ->
                                         ReactionsDTO(
                                             emoji = key,
-                                            count = value.size,
                                             users = value
                                         )
                                     }
@@ -203,7 +202,6 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
                                     ).map { (key, value) ->
                                         ReactionsDTO(
                                             emoji = key,
-                                            count = value.size,
                                             users = value
                                         )
                                     }
