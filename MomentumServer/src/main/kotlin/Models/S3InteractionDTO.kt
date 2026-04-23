@@ -35,7 +35,6 @@ data class PresignedURLDTO(
 @Serializable
 data class ReactionsDTO(
     val emoji: String,
-    val count: Int,
     val users: List<String>
 )
 
