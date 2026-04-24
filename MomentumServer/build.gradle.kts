@@ -60,4 +60,7 @@ dependencies {
     implementation("jakarta.mail:jakarta.mail-api:2.1.1")
     implementation("org.eclipse.angus:angus-mail:2.0.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+
+
+    implementation("com.google.firebase:firebase-admin:9.8.0")
 }

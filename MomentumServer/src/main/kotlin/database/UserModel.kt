@@ -40,6 +40,7 @@ object UserModel : Table("users") {
     private val telephone = varchar("telephone", 20).nullable()
     private val email = varchar("email", 255)
     private val username = varchar("username", 50).nullable()
+    private val push_token = varchar("push_token", 256).nullable()
     override val primaryKey = PrimaryKey(UserModel.id)
 
 
@@ -186,6 +187,15 @@ object UserModel : Table("users") {
                 .where { UserModel.username eq username }
                 .map { it[UserModel.id] }
                 .singleOrNull()
+        }
+    }
+
+    fun addPushToken(userId: UUID, pushToken: String) {
+        transaction {
+            UserModel
+                .update({ UserModel.id eq userId }) {
+                    it[push_token] = pushToken
+                }
         }
     }
 

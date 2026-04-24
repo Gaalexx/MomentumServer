@@ -10,6 +10,9 @@ import com.example.database.UserModel
 import com.example.tokens.JwtService
 import com.example.tokens.RefreshTokenGenerator
 import io.ktor.http.*
+import io.ktor.server.auth.authenticate
+import io.ktor.server.auth.jwt.JWTPrincipal
+import io.ktor.server.auth.principal
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -21,6 +24,21 @@ fun Route.authRoutes(jwtService: JwtService) {
     val jwtDomain = jwtConfig.property("domain").getString()
     val jwtRealm = jwtConfig.property("realm").getString()
     val jwtSecret = jwtConfig.property("secret").getString()
+
+    authenticate("jwt"){
+        post("/sync-push-token"){
+            val principal = call.principal<JWTPrincipal>() ?: return@post call.respond(HttpStatusCode.Unauthorized)
+
+            val body = call.receive<GetJWTDTO>()
+
+            val userId = UUID.fromString(principal.subject)
+            if(body.token != null){
+                UserModel.addPushToken(userId, body.token)
+                call.respond(HttpStatusCode.OK, GetJWTDTO(body.token))
+            }
+            call.respond(HttpStatusCode.BadRequest, GetJWTDTO(null))
+        }
+    }
 
     post("/auth"){
         val body = call.receive<GetJWTDTO>()
@@ -38,6 +56,7 @@ fun Route.authRoutes(jwtService: JwtService) {
             call.respond(HttpStatusCode.BadRequest, GetJWTDTO(null))
         }
     }
+
 
     post("/check-email") {
         val body = call.receive<CheckEmailRequestDTO>()
