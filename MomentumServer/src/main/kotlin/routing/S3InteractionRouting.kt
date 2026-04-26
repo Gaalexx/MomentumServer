@@ -110,52 +110,59 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
                 UploadingStatus.READY -> {
                     MediaTable.changeStatus(mediaId, body.status)
 
+
                     val existingPost = PostsTable.getPostByMediaId(mediaId)
                     if (existingPost == null) {
                         val postId = UUID.randomUUID()
                         val post = PostModel(postId, userId, body.title ?: "", true, createdAt = null, mediaId)
                         PostsTable.insertNewPost(post)
 
-                        val user = UserModel.getFullUser(userId)
-                        val pushToken = user?.pushToken?.takeIf { it.isNotBlank() }
-                        if (pushToken != null) {
-                            val pushResult = PushSender.sendToToken(
-                                token = pushToken,
-                                title = "Новая запись",
-                                body = "${user.username ?: user.email} выкладывает новый момент"
-                            )
+                        val friends = Friendships.getFriendsWithDetails(userId)
 
-                            when {
-                                pushResult.isSuccess -> {
-                                    logger.info(
-                                        "Push sent for media {} to user {} with messageId {}",
-                                        mediaId,
-                                        userId,
-                                        pushResult.messageId
-                                    )
+                        friends.forEach { friend ->
+                            val friendInfo = UserModel.getFullUser(UUID.fromString(friend.userId))
+                            val pushToken = friendInfo?.pushToken?.takeIf { it.isNotBlank() }
+                            if (pushToken != null) {
+                                val pushResult = PushSender.sendToToken(
+                                    token = pushToken,
+                                    title = "Новая запись",
+                                    body = "${friendInfo.username ?: friendInfo.email} выложил новый момент"
+                                )
+
+                                when {
+                                    pushResult.isSuccess -> {
+                                        logger.info(
+                                            "Push sent for media {} to user {} with messageId {}",
+                                            mediaId,
+                                            userId,
+                                            pushResult.messageId
+                                        )
+                                    }
+                                    pushResult.shouldInvalidateToken -> {
+                                        UserModel.clearPushToken(userId, pushToken)
+                                        logger.warn(
+                                            "Invalid push token was cleared for user {} after failed push for media {}: {}",
+                                            userId,
+                                            mediaId,
+                                            pushResult.errorCode ?: "UNKNOWN"
+                                        )
+                                    }
+                                    else -> {
+                                        logger.warn(
+                                            "Push was not sent for media {} to user {}: {} {}",
+                                            mediaId,
+                                            userId,
+                                            pushResult.errorCode ?: "UNKNOWN",
+                                            pushResult.errorMessage ?: ""
+                                        )
+                                    }
                                 }
-                                pushResult.shouldInvalidateToken -> {
-                                    UserModel.clearPushToken(userId, pushToken)
-                                    logger.warn(
-                                        "Invalid push token was cleared for user {} after failed push for media {}: {}",
-                                        userId,
-                                        mediaId,
-                                        pushResult.errorCode ?: "UNKNOWN"
-                                    )
-                                }
-                                else -> {
-                                    logger.warn(
-                                        "Push was not sent for media {} to user {}: {} {}",
-                                        mediaId,
-                                        userId,
-                                        pushResult.errorCode ?: "UNKNOWN",
-                                        pushResult.errorMessage ?: ""
-                                    )
-                                }
+                            } else {
+                                logger.info("Skipping push for media {}: user {} has no push token", mediaId, userId)
                             }
-                        } else {
-                            logger.info("Skipping push for media {}: user {} has no push token", mediaId, userId)
                         }
+
+
                     } else {
                         logger.info("Skipping duplicate READY status for media {}", mediaId)
                     }

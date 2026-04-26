@@ -43,7 +43,12 @@ object PushSender {
             val shouldInvalidateToken = e.messagingErrorCode == MessagingErrorCode.UNREGISTERED ||
                 e.messagingErrorCode == MessagingErrorCode.INVALID_ARGUMENT
 
-            println("error push")
+            logger.warn(
+                "Failed to send push to token {} with code {}",
+                maskToken(token),
+                errorCode,
+                e
+            )
 
             PushSendResult(
                 isSuccess = false,
@@ -52,8 +57,7 @@ object PushSender {
                 shouldInvalidateToken = shouldInvalidateToken
             )
         } catch (e: Exception) {
-            println("unknown error push")
-
+            logger.error("Unexpected push sending failure for token {}", maskToken(token), e)
             PushSendResult(
                 isSuccess = false,
                 errorMessage = e.message
