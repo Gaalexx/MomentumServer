@@ -46,8 +46,11 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       PORT: "8080"
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase-service-account.json
     networks: [backend]
     restart: unless-stopped
+    volumes:
+      - ./MomentumServer/firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
 
   nginx:
     image: nginx:1.27
