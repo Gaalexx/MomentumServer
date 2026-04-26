@@ -10,6 +10,7 @@ import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.deleteWhere
+import org.slf4j.LoggerFactory
 import java.util.UUID
 
 data class PostModel(
@@ -22,6 +23,7 @@ data class PostModel(
 )
 
 object PostsTable : Table("posts") {
+    private val logger = LoggerFactory.getLogger(PostsTable::class.java)
 
     private val id = uuid("id")
     private val userId = uuid("user_id")
@@ -82,7 +84,7 @@ object PostsTable : Table("posts") {
     }
 
     fun getPostByMediaId(mediaId: UUID): PostModel? = transaction {
-        PostsTable
+        val posts = PostsTable
             .selectAll()
             .where { PostsTable.mediaId eq mediaId }
             .map { row ->
@@ -95,7 +97,11 @@ object PostsTable : Table("posts") {
                     mediaId = row[PostsTable.mediaId]
                 )
             }
-            .singleOrNull()
+        if (posts.size > 1) {
+            logger.warn("Multiple posts found for mediaId {}, using the first one", mediaId)
+        }
+
+        posts.firstOrNull()
     }
 
 }

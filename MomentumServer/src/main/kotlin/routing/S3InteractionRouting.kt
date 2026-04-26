@@ -117,16 +117,19 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
                         val post = PostModel(postId, userId, body.title ?: "", true, createdAt = null, mediaId)
                         PostsTable.insertNewPost(post)
 
+                        val author = UserModel.getFullUser(userId)
+                        val authorName = author?.username ?: author?.email ?: userId.toString()
                         val friends = Friendships.getFriendsWithDetails(userId)
 
                         friends.forEach { friend ->
-                            val friendInfo = UserModel.getFullUser(UUID.fromString(friend.userId))
+                            val friendId = UUID.fromString(friend.userId)
+                            val friendInfo = UserModel.getFullUser(friendId)
                             val pushToken = friendInfo?.pushToken?.takeIf { it.isNotBlank() }
                             if (pushToken != null) {
                                 val pushResult = PushSender.sendToToken(
                                     token = pushToken,
                                     title = "Новая запись",
-                                    body = "${friendInfo.username ?: friendInfo.email} выложил новый момент"
+                                    body = "$authorName выложил новый момент"
                                 )
 
                                 when {
@@ -137,16 +140,16 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
                                             userId,
                                             pushResult.messageId
                                         )
-                                    }
-                                    pushResult.shouldInvalidateToken -> {
-                                        UserModel.clearPushToken(userId, pushToken)
-                                        logger.warn(
-                                            "Invalid push token was cleared for user {} after failed push for media {}: {}",
-                                            userId,
-                                            mediaId,
-                                            pushResult.errorCode ?: "UNKNOWN"
-                                        )
-                                    }
+                                }
+                                pushResult.shouldInvalidateToken -> {
+                                    UserModel.clearPushToken(friendId, pushToken)
+                                    logger.warn(
+                                        "Invalid push token was cleared for friend {} after failed push for media {}: {}",
+                                        friendId,
+                                        mediaId,
+                                        pushResult.errorCode ?: "UNKNOWN"
+                                    )
+                                }
                                     else -> {
                                         logger.warn(
                                             "Push was not sent for media {} to user {}: {} {}",
