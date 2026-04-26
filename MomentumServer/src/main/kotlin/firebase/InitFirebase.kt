@@ -1,4 +1,4 @@
-package com.example.data.firebase
+package com.example.firebase
 
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.firebase.FirebaseApp

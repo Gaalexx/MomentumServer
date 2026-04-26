@@ -4,6 +4,7 @@ import com.example.Models.*
 import com.example.Models.*
 import com.example.Respond
 import com.example.database.*
+import com.example.firebase.PushSender
 import com.example.s3Client.S3Client
 import com.example.s3Client.StorageException
 import com.example.tokens.JwtService
@@ -100,6 +101,14 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
             val body = call.receive<S3UpdateStatusDTO>()
 
             val userId = UUID.fromString(principal.subject)
+
+            val user = UserModel.getFullUser(userId)
+
+            if(user?.pushToken != null){
+                PushSender.sendToToken(token = user.pushToken, title = "Новая запись", body = "${user.username ?: user.email} выкладывает новый момент")
+            }
+
+
             val mediaId = UUID.fromString(body.mediaId)
             val postId = UUID.randomUUID()
 

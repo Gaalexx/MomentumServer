@@ -30,6 +30,7 @@ data class User(
     val registerDate: LocalDateTime,
     val phoneNumber: String?,
     val hasPremium: Boolean,
+    val pushToken: String?
 )
 
 object UserModel : Table("users") {
@@ -143,7 +144,8 @@ object UserModel : Table("users") {
                         email = row[UserModel.email],
                         registerDate = row[UserModel.registered_at],
                         phoneNumber = row[UserModel.telephone],
-                        hasPremium = row[UserModel.hasPremium]
+                        hasPremium = row[UserModel.hasPremium],
+                        pushToken = row[UserModel.push_token]
                     )
                 }
         }

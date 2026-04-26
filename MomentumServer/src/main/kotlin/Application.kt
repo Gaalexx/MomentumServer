@@ -1,6 +1,7 @@
 package com.example
 
 import com.example.data.codestorage.CodeStorage
+import com.example.firebase.initFirebase
 import com.example.tokens.JwtService
 import io.ktor.server.application.*
 import org.flywaydb.core.Flyway
@@ -35,6 +36,8 @@ fun Application.module() {
     val pass = System.getenv("DB_PASSWORD") ?: "app"
 
     val jwtConfig = loadJwtSettings()
+
+    initFirebase()
 
     // launch of background cleaning
     CodeStorage.startCleanupScheduler(this)
