@@ -119,7 +119,7 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
 
                         val author = UserModel.getFullUser(userId)
                         val authorName = author?.username ?: author?.email ?: userId.toString()
-                        val friends = Friendships.getFriendsWithDetails(userId)
+                        val friends = transaction {Friendships.getFriendsWithDetails(userId)}
 
                         friends.forEach { friend ->
                             val friendId = UUID.fromString(friend.userId)
