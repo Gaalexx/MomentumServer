@@ -20,8 +20,11 @@ import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.slf4j.LoggerFactory
 import java.time.Duration
 import java.util.UUID
+
+private val logger = LoggerFactory.getLogger("com.example.routing.S3InteractionRouting")
 
 fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удаление FAILED ссылок из медиа
 
@@ -101,28 +104,69 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
             val body = call.receive<S3UpdateStatusDTO>()
 
             val userId = UUID.fromString(principal.subject)
-
-            val user = UserModel.getFullUser(userId)
-
-            if(user?.pushToken != null){
-                PushSender.sendToToken(token = user.pushToken, title = "Новая запись", body = "${user.username ?: user.email} выкладывает новый момент")
-            }
-
-
             val mediaId = UUID.fromString(body.mediaId)
-            val postId = UUID.randomUUID()
 
-            val post: PostModel? = when(body.status){
-                UploadingStatus.READY -> PostModel(postId, userId, body.title ?: "", true, createdAt = null, mediaId)
-                UploadingStatus.UPLOADING -> null // TODO продумать эти случаи
-                UploadingStatus.FAILED -> null
-            }
+            when (body.status) {
+                UploadingStatus.READY -> {
+                    MediaTable.changeStatus(mediaId, body.status)
 
-            if(post == null){
-                // TODO удалить медиа из бд
-            }
-            else{
-                PostsTable.insertNewPost(post)
+                    val existingPost = PostsTable.getPostByMediaId(mediaId)
+                    if (existingPost == null) {
+                        val postId = UUID.randomUUID()
+                        val post = PostModel(postId, userId, body.title ?: "", true, createdAt = null, mediaId)
+                        PostsTable.insertNewPost(post)
+
+                        val user = UserModel.getFullUser(userId)
+                        val pushToken = user?.pushToken?.takeIf { it.isNotBlank() }
+                        if (pushToken != null) {
+                            val pushResult = PushSender.sendToToken(
+                                token = pushToken,
+                                title = "Новая запись",
+                                body = "${user.username ?: user.email} выкладывает новый момент"
+                            )
+
+                            when {
+                                pushResult.isSuccess -> {
+                                    logger.info(
+                                        "Push sent for media {} to user {} with messageId {}",
+                                        mediaId,
+                                        userId,
+                                        pushResult.messageId
+                                    )
+                                }
+                                pushResult.shouldInvalidateToken -> {
+                                    UserModel.clearPushToken(userId, pushToken)
+                                    logger.warn(
+                                        "Invalid push token was cleared for user {} after failed push for media {}: {}",
+                                        userId,
+                                        mediaId,
+                                        pushResult.errorCode ?: "UNKNOWN"
+                                    )
+                                }
+                                else -> {
+                                    logger.warn(
+                                        "Push was not sent for media {} to user {}: {} {}",
+                                        mediaId,
+                                        userId,
+                                        pushResult.errorCode ?: "UNKNOWN",
+                                        pushResult.errorMessage ?: ""
+                                    )
+                                }
+                            }
+                        } else {
+                            logger.info("Skipping push for media {}: user {} has no push token", mediaId, userId)
+                        }
+                    } else {
+                        logger.info("Skipping duplicate READY status for media {}", mediaId)
+                    }
+                }
+                UploadingStatus.UPLOADING -> {
+                    MediaTable.changeStatus(mediaId, body.status)
+                }
+                UploadingStatus.FAILED -> {
+                    MediaTable.changeStatus(mediaId, body.status)
+                    MediaTable.deleteMedia(mediaId)
+                }
             }
 
             call.respond(HttpStatusCode.OK)

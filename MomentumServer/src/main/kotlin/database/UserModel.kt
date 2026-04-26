@@ -6,6 +6,7 @@ import org.jetbrains.exposed.sql.Alias
 import org.jetbrains.exposed.sql.Op
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -198,6 +199,16 @@ object UserModel : Table("users") {
                 .update({ UserModel.id eq userId }) {
                     it[push_token] = pushToken
                 }
+        }
+    }
+
+    fun clearPushToken(userId: UUID, pushToken: String) {
+        transaction {
+            UserModel.update({
+                (UserModel.id eq userId) and (UserModel.push_token eq pushToken)
+            }) {
+                it[UserModel.push_token] = null
+            }
         }
     }
 

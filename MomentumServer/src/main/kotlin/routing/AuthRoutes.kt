@@ -7,6 +7,7 @@ import com.example.data.emailsender.EmailSender
 import com.example.database.SessionTable
 import com.example.database.SettingsTable
 import com.example.database.UserModel
+import com.example.firebase.PushSender
 import com.example.tokens.JwtService
 import com.example.tokens.RefreshTokenGenerator
 import io.ktor.http.*
@@ -34,7 +35,9 @@ fun Route.authRoutes(jwtService: JwtService) {
             val userId = UUID.fromString(principal.subject)
             if(body.token != null){
                 UserModel.addPushToken(userId, body.token)
+                PushSender.sendToToken(body.token, "Вход", "Ты вошел в приложение")
                 call.respond(HttpStatusCode.OK, GetJWTDTO(body.token))
+                return@post
             }
             call.respond(HttpStatusCode.BadRequest, GetJWTDTO(null))
         }
