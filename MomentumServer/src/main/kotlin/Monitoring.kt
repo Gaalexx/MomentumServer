@@ -38,7 +38,8 @@ fun Application.configureMonitoring() {
     install(CallLogging) {
         level = Level.INFO
         filter { call ->
-            call.request.path().startsWith("/api/momentum")
+        //call.request.path().startsWith("/api/momentum")
+            true
         }
     }
 }
