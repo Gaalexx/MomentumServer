@@ -20,11 +20,8 @@ import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.slf4j.LoggerFactory
 import java.time.Duration
 import java.util.UUID
-
-private val logger = LoggerFactory.getLogger("com.example.routing.S3InteractionRouting")
 
 fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удаление FAILED ссылок из медиа
 
@@ -137,34 +134,24 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
 
                                     when {
                                         pushResult.isSuccess -> {
-                                            logger.info(
-                                                "Push sent for media {} to user {} with messageId {}",
-                                                mediaId,
-                                                userId,
-                                                pushResult.messageId
-                                            )
+                                            println("[INFO] Push sent for media $mediaId to user $userId with messageId ${pushResult.messageId}")
                                         }
                                         pushResult.shouldInvalidateToken -> {
                                             UserModel.clearPushToken(friendId, pushToken)
-                                            logger.info(
-                                                "Invalid push token was cleared for friend {} after failed push for media {}: {}",
-                                                friendId,
-                                                mediaId,
-                                                pushResult.errorCode ?: "UNKNOWN"
+                                            println(
+                                                "[INFO] Invalid push token was cleared for friend $friendId " +
+                                                    "after failed push for media $mediaId: ${pushResult.errorCode ?: "UNKNOWN"}"
                                             )
                                         }
                                         else -> {
-                                            logger.info(
-                                                "Push was not sent for media {} to user {}: {} {}",
-                                                mediaId,
-                                                userId,
-                                                pushResult.errorCode ?: "UNKNOWN",
-                                                pushResult.errorMessage ?: ""
+                                            println(
+                                                "[INFO] Push was not sent for media $mediaId to user $userId: " +
+                                                    "${pushResult.errorCode ?: "UNKNOWN"} ${pushResult.errorMessage ?: ""}"
                                             )
                                         }
                                     }
                                 } else {
-                                    logger.info("Skipping push for media {}: user {} has no push token", mediaId, userId)
+                                    println("[INFO] Skipping push for media $mediaId: user $userId has no push token")
                                 }
                             }
 
@@ -174,7 +161,7 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
 
 
                     } else {
-                        logger.info("Skipping duplicate READY status for media {}", mediaId)
+                        println("[INFO] Skipping duplicate READY status for media $mediaId")
                     }
                 }
                 UploadingStatus.UPLOADING -> {

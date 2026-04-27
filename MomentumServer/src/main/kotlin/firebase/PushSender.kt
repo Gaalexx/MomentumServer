@@ -5,7 +5,6 @@ import com.google.firebase.messaging.FirebaseMessagingException
 import com.google.firebase.messaging.Message
 import com.google.firebase.messaging.MessagingErrorCode
 import com.google.firebase.messaging.Notification
-import org.slf4j.LoggerFactory
 
 data class PushSendResult(
     val isSuccess: Boolean,
@@ -16,8 +15,6 @@ data class PushSendResult(
 )
 
 object PushSender {
-    private val logger = LoggerFactory.getLogger(PushSender::class.java)
-
     fun sendToToken(
         token: String,
         title: String,
@@ -43,11 +40,9 @@ object PushSender {
             val shouldInvalidateToken = e.messagingErrorCode == MessagingErrorCode.UNREGISTERED ||
                 e.messagingErrorCode == MessagingErrorCode.INVALID_ARGUMENT
 
-            logger.info(
-                "Failed to send push to token {} with code {}",
-                maskToken(token),
-                errorCode,
-                e
+            println(
+                "[INFO] Failed to send push to token ${maskToken(token)} with code $errorCode\n" +
+                    e.stackTraceToString()
             )
 
             PushSendResult(
@@ -57,7 +52,10 @@ object PushSender {
                 shouldInvalidateToken = shouldInvalidateToken
             )
         } catch (e: Exception) {
-            logger.error("Unexpected push sending failure for token {}", maskToken(token), e)
+            println(
+                "[ERROR] Unexpected push sending failure for token ${maskToken(token)}\n" +
+                    e.stackTraceToString()
+            )
             PushSendResult(
                 isSuccess = false,
                 errorMessage = e.message
