@@ -25,6 +25,15 @@ data class FriendRequestResult(
     val requestId: UUID
 )
 
+data class FriendRequestModel(
+    val id: String,
+    val fromId: String,
+    val toId: String,
+    val status: String,
+    val createdAt: String,
+    val updatedAt: String
+)
+
 object FriendRequests : Table("friend_requests") {
     val id = uuid("id").autoGenerate()
     val fromUserId = reference("from_user_id", UserModel.id)
@@ -47,6 +56,24 @@ object FriendRequests : Table("friend_requests") {
 
     init {
         uniqueIndex("unique_friend_request", fromUserId, toUserId)
+    }
+
+    fun getRequestById(requestId: UUID): FriendRequestModel? {
+        return transaction {
+            FriendRequests
+                .selectAll().where { FriendRequests.id eq requestId }
+                .map{
+                    FriendRequestModel(
+                        id = it[FriendRequests.id].toString(),
+                        fromId = it[FriendRequests.fromUserId].toString(),
+                        toId = it[FriendRequests.toUserId].toString(),
+                        status = it[FriendRequests.status],
+                        createdAt = it[FriendRequests.createdAt].toString(),
+                        updatedAt = it[FriendRequests.updatedAt].toString()
+                    )
+                }
+                .singleOrNull()
+        }
     }
 
     fun createOrProcessRequest(
