@@ -146,7 +146,7 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
                                         }
                                         pushResult.shouldInvalidateToken -> {
                                             UserModel.clearPushToken(friendId, pushToken)
-                                            logger.warn(
+                                            logger.info(
                                                 "Invalid push token was cleared for friend {} after failed push for media {}: {}",
                                                 friendId,
                                                 mediaId,
@@ -154,7 +154,7 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
                                             )
                                         }
                                         else -> {
-                                            logger.warn(
+                                            logger.info(
                                                 "Push was not sent for media {} to user {}: {} {}",
                                                 mediaId,
                                                 userId,

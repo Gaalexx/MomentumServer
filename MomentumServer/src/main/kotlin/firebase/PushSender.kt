@@ -43,7 +43,7 @@ object PushSender {
             val shouldInvalidateToken = e.messagingErrorCode == MessagingErrorCode.UNREGISTERED ||
                 e.messagingErrorCode == MessagingErrorCode.INVALID_ARGUMENT
 
-            logger.warn(
+            logger.info(
                 "Failed to send push to token {} with code {}",
                 maskToken(token),
                 errorCode,
