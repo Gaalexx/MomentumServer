@@ -444,7 +444,7 @@ object Friendships : Table("friendships") {
             .singleOrNull()
 
         deleteWhere {
-            (Friendships.userId1 eq id1) and (Friendships.userId2 eq id2)
+            ((Friendships.userId1 eq id1) and (Friendships.userId2 eq id2)) or ((Friendships.userId2 eq id1) and (Friendships.userId1 eq id2))
         }
 
         if (friendRequest != null) {
