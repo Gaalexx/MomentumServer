@@ -433,7 +433,7 @@ object Friendships : Table("friendships") {
         val (id1, id2) = if (userUUID < friendUUID) userUUID to friendUUID else friendUUID to userUUID
 
         val friendship = selectAll()
-            .where { (Friendships.userId1 eq id1) and (Friendships.userId2 eq id2) }
+            .where { ((Friendships.userId1 eq id1) and (Friendships.userId2 eq id2)) or ((Friendships.userId2 eq id1) and (Friendships.userId1 eq id2)) }
             .singleOrNull() ?: return "NOT_FOUND"
 
         val friendRequest = FriendRequests.selectAll()
