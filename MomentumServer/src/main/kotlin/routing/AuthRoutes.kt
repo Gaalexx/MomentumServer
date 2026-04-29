@@ -35,11 +35,10 @@ fun Route.authRoutes(jwtService: JwtService) {
             val userId = UUID.fromString(principal.subject)
             if(body.token != null){
                 UserModel.addPushToken(userId, body.token)
-                PushSender.sendToToken(body.token, "Вход", "Ты вошел в приложение")
                 call.respond(HttpStatusCode.OK, GetJWTDTO(body.token))
                 return@post
             }
-            call.respond(HttpStatusCode.BadRequest, GetJWTDTO(null))
+            call.respond(HttpStatusCode.OK, GetJWTDTO(null))
         }
     }
 

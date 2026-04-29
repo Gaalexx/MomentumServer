@@ -3,6 +3,7 @@ package com.example.routing
 import com.example.Models.*
 import com.example.Models.*
 import com.example.Respond
+import com.example.data.locale.ResourceGetter
 import com.example.database.*
 import com.example.firebase.PushSender
 import com.example.s3Client.S3Client
@@ -128,8 +129,8 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
                                 if (pushToken != null) {
                                     val pushResult = PushSender.sendToToken(
                                         token = pushToken,
-                                        title = "Новая запись",
-                                        body = "$authorName выложил новый момент"
+                                        title = ResourceGetter.t("push_message.friend_sent_a_moment_header"),
+                                        body = ResourceGetter.tf("push_message.friend_sent_a_moment", authorName)
                                     )
 
                                     when {

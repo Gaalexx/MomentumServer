@@ -1,6 +1,7 @@
 package com.example.routing
 
 import com.example.Models.ReactionsModel
+import com.example.data.locale.ResourceGetter
 import com.example.database.PostsTable
 import com.example.database.ReactionsTable
 import com.example.database.SettingsTable
@@ -52,8 +53,13 @@ fun Route.reactionsRoutes(jwtService: JwtService){
                 val user = UserModel.getFullUser(post.userId)
                 val userWhoLiled = UserModel.getFullUser(userId)
                 val settings = SettingsTable.getServerSettingsInfo(userId)
-                if(user != null && userWhoLiled != null && settings != null && settings.reactionsEnabled && user.pushToken != null) {
-                    PushSender.sendToToken(user.pushToken, "Новая реакция", "${userWhoLiled.username ?: userWhoLiled.email} поставил реакцию ${reactionType}!")
+                val reactions = ReactionsTable.getAllPostReactions(userId, postId)
+                if(reactions.isEmpty() && user != null && userWhoLiled != null && settings != null && settings.reactionsEnabled && user.pushToken != null) {
+                    PushSender.sendToToken(
+                        user.pushToken,
+                        ResourceGetter.t("push_message.friend_put_reaction_header"),
+                        ResourceGetter.tf("push_message.friend_put_reaction", userWhoLiled.username ?: userWhoLiled.email)
+                    )
                 }
             }
 

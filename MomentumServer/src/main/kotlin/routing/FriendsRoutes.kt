@@ -1,6 +1,7 @@
 package com.example.routing
 
 import com.example.Models.*
+import com.example.data.locale.ResourceGetter
 import com.example.database.UserModel
 import com.example.database.FriendRequests
 import com.example.database.Friendships
@@ -79,7 +80,11 @@ fun Route.friendsRoutes(jwtService: JwtService) {
                 if(user != null && user.pushToken != null && userSettings != null && userSettings.inAppNotifications) {
                     val fromUser = UserModel.getFullUser(fromUUID)
                     if(fromUser != null){
-                        PushSender.sendToToken(user.pushToken, "Новая заявка в друзья", "${fromUser?.username ?: fromUser.email} хочет добавить Вас в друзья")
+                        PushSender.sendToToken(
+                            user.pushToken,
+                            ResourceGetter.t("push_message.friend_request_header"),
+                            ResourceGetter.tf("push_message.friend_request", fromUser.username ?: fromUser.email)
+                        )
                     }
                 }
 
@@ -139,7 +144,11 @@ fun Route.friendsRoutes(jwtService: JwtService) {
                 if(user != null && user.pushToken != null && userSettings != null && userSettings.inAppNotifications) {
                     val fromUser = UserModel.getFullUser(fromUUID)
                     if(fromUser != null){
-                        PushSender.sendToToken(user.pushToken, "Новая заявка в друзья", "${fromUser?.username ?: fromUser.email} хочет добавить Вас в друзья")
+                        PushSender.sendToToken(
+                            user.pushToken,
+                            ResourceGetter.t("push_message.friend_request_header"),
+                            ResourceGetter.tf("push_message.friend_request", fromUser.username ?: fromUser.email)
+                        )
                     }
                 }
 
@@ -307,7 +316,11 @@ fun Route.friendsRoutes(jwtService: JwtService) {
                                 val toUser = UserModel.getFullUser(UUID.fromString(request.toId))
                                 if(toUser != null && fromUser.pushToken != null && userSettings != null && userSettings.inAppNotifications) {
                                     if(toUser != null){
-                                        PushSender.sendToToken(fromUser.pushToken, "Заявка в друзья принята", "${toUser?.username ?: toUser.email} принял Вашу заявку в друзья")
+                                        PushSender.sendToToken(
+                                            fromUser.pushToken,
+                                            ResourceGetter.t("push_message.friend_request_answer_accept_header"),
+                                            ResourceGetter.tf("push_message.friend_request_answer_accept", fromUser.username ?: fromUser.email)
+                                        )
                                     }
                                 }
                             }
@@ -374,7 +387,11 @@ fun Route.friendsRoutes(jwtService: JwtService) {
                                 val userSettings = SettingsTable.getServerSettingsInfo(fromUser.id)
                                 val toUser = UserModel.getFullUser(UUID.fromString(request.toId))
                                 if(toUser != null && fromUser.pushToken != null && userSettings != null && userSettings.inAppNotifications) {
-                                    PushSender.sendToToken(fromUser.pushToken, "Заявка в друзья отклонена", "${toUser?.username ?: toUser.email} отклонил Вашу заявку в друзья")
+                                    PushSender.sendToToken(
+                                        fromUser.pushToken,
+                                        ResourceGetter.t("push_message.friend_request_answer_reject_header"),
+                                        ResourceGetter.tf("push_message.friend_request_answer_reject", toUser.username ?: toUser.email)
+                                    )
                                 }
                             }
                         }
