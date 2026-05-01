@@ -6,6 +6,7 @@ import org.jetbrains.exposed.sql.Alias
 import org.jetbrains.exposed.sql.Op
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -30,6 +31,7 @@ data class User(
     val registerDate: LocalDateTime,
     val phoneNumber: String?,
     val hasPremium: Boolean,
+    val pushToken: String?
 )
 
 object UserModel : Table("users") {
@@ -40,6 +42,7 @@ object UserModel : Table("users") {
     private val telephone = varchar("telephone", 20).nullable()
     private val email = varchar("email", 255)
     private val username = varchar("username", 50).nullable()
+    private val push_token = varchar("push_token", 256).nullable()
     override val primaryKey = PrimaryKey(UserModel.id)
 
 
@@ -142,7 +145,8 @@ object UserModel : Table("users") {
                         email = row[UserModel.email],
                         registerDate = row[UserModel.registered_at],
                         phoneNumber = row[UserModel.telephone],
-                        hasPremium = row[UserModel.hasPremium]
+                        hasPremium = row[UserModel.hasPremium],
+                        pushToken = row[UserModel.push_token]
                     )
                 }
         }
@@ -186,6 +190,25 @@ object UserModel : Table("users") {
                 .where { UserModel.username eq username }
                 .map { it[UserModel.id] }
                 .singleOrNull()
+        }
+    }
+
+    fun addPushToken(userId: UUID, pushToken: String) {
+        transaction {
+            UserModel
+                .update({ UserModel.id eq userId }) {
+                    it[push_token] = pushToken
+                }
+        }
+    }
+
+    fun clearPushToken(userId: UUID, pushToken: String) {
+        transaction {
+            UserModel.update({
+                (UserModel.id eq userId) and (UserModel.push_token eq pushToken)
+            }) {
+                it[UserModel.push_token] = null
+            }
         }
     }
 

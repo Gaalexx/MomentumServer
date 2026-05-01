@@ -61,10 +61,14 @@ object MediaTable : Table(name = "media") {
 
     fun changeStatus(media: MediaModel) {
         if(media.status != null){
-            transaction {
-                MediaTable.update({ MediaTable.id eq media.userId}) {
-                    it[status] = media.status.value
-                }
+            changeStatus(media.id, media.status)
+        }
+    }
+
+    fun changeStatus(mediaId: UUID, status: UploadingStatus) {
+        transaction {
+            MediaTable.update({ MediaTable.id eq mediaId }) {
+                it[MediaTable.status] = status.value
             }
         }
     }

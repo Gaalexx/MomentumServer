@@ -22,7 +22,6 @@ data class PostModel(
 )
 
 object PostsTable : Table("posts") {
-
     private val id = uuid("id")
     private val userId = uuid("user_id")
     private val createdAt = timestampWithTimeZone("created_at")
@@ -82,7 +81,7 @@ object PostsTable : Table("posts") {
     }
 
     fun getPostByMediaId(mediaId: UUID): PostModel? = transaction {
-        PostsTable
+        val posts = PostsTable
             .selectAll()
             .where { PostsTable.mediaId eq mediaId }
             .map { row ->
@@ -95,7 +94,11 @@ object PostsTable : Table("posts") {
                     mediaId = row[PostsTable.mediaId]
                 )
             }
-            .singleOrNull()
+        if (posts.size > 1) {
+            println("[WARN] Multiple posts found for mediaId $mediaId, using the first one")
+        }
+
+        posts.firstOrNull()
     }
 
 }

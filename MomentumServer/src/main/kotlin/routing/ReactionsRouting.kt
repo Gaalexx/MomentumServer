@@ -1,7 +1,12 @@
 package com.example.routing
 
 import com.example.Models.ReactionsModel
+import com.example.data.locale.ResourceGetter
+import com.example.database.PostsTable
 import com.example.database.ReactionsTable
+import com.example.database.SettingsTable
+import com.example.database.UserModel
+import com.example.firebase.PushSender
 import com.example.tokens.JwtService
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.auth.authenticate
@@ -19,10 +24,10 @@ fun Route.reactionsRoutes(jwtService: JwtService){
         post("/react/{post_id}/{reaction_type}") {
             val principal = call.principal<JWTPrincipal>() ?: return@post call.respond(HttpStatusCode.Unauthorized)
 
-            val postId = call.parameters["post_id"]
-                ?: return@post call.respond(
-                    HttpStatusCode.BadRequest
-                )
+            val postId = UUID.fromString(call.parameters["post_id"]?: return@post call.respond(
+                HttpStatusCode.BadRequest
+            ))
+
             val reactionType = call.parameters["reaction_type"]
                 ?: return@post call.respond(
                     HttpStatusCode.BadRequest
@@ -35,13 +40,28 @@ fun Route.reactionsRoutes(jwtService: JwtService){
                     ReactionsModel(
                         id = id,
                         userId = userId,
-                        postId = UUID.fromString(postId),
+                        postId = postId,
                         reactionType = reactionType,
                     )
                 )
             } catch (e: IllegalArgumentException) {
                 call.respond(HttpStatusCode.BadRequest, "Invalid UUID format ${e.message ?: ""}")
             }
+
+            val post = PostsTable.getPostById(postId)
+            if(post != null) {
+                val user = UserModel.getFullUser(post.userId)
+                val userWhoLiked = UserModel.getFullUser(userId)
+                val settings = SettingsTable.getServerSettingsInfo(userId)
+                if(user != null && userWhoLiked != null && settings != null && settings.reactionsEnabled && user.pushToken != null) {
+                    PushSender.sendToToken(
+                        user.pushToken,
+                        ResourceGetter.t("push_message.friend_put_reaction_header"),
+                        ResourceGetter.tf("push_message.friend_put_reaction", userWhoLiked.username ?: userWhoLiked.email)
+                    )
+                }
+            }
+
 
             call.respond(HttpStatusCode.OK)
         }
