@@ -51,14 +51,14 @@ fun Route.reactionsRoutes(jwtService: JwtService){
             val post = PostsTable.getPostById(postId)
             if(post != null) {
                 val user = UserModel.getFullUser(post.userId)
-                val userWhoLiled = UserModel.getFullUser(userId)
+                val userWhoLiked = UserModel.getFullUser(userId)
                 val settings = SettingsTable.getServerSettingsInfo(userId)
                 val reactions = ReactionsTable.getAllPostReactions(userId, postId)
-                if(reactions.isEmpty() && user != null && userWhoLiled != null && settings != null && settings.reactionsEnabled && user.pushToken != null) {
+                if(user != null && userWhoLiked != null && settings != null && settings.reactionsEnabled && user.pushToken != null) {
                     PushSender.sendToToken(
                         user.pushToken,
                         ResourceGetter.t("push_message.friend_put_reaction_header"),
-                        ResourceGetter.tf("push_message.friend_put_reaction", userWhoLiled.username ?: userWhoLiled.email)
+                        ResourceGetter.tf("push_message.friend_put_reaction", userWhoLiked.username ?: userWhoLiked.email)
                     )
                 }
             }
