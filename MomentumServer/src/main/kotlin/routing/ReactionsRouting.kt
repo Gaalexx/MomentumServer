@@ -53,7 +53,6 @@ fun Route.reactionsRoutes(jwtService: JwtService){
                 val user = UserModel.getFullUser(post.userId)
                 val userWhoLiked = UserModel.getFullUser(userId)
                 val settings = SettingsTable.getServerSettingsInfo(userId)
-                val reactions = ReactionsTable.getAllPostReactions(userId, postId)
                 if(user != null && userWhoLiked != null && settings != null && settings.reactionsEnabled && user.pushToken != null) {
                     PushSender.sendToToken(
                         user.pushToken,
