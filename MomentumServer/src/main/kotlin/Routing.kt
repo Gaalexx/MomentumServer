@@ -5,6 +5,7 @@ import com.example.tokens.JwtService
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.statuspages.*
+import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.Serializable
@@ -18,7 +19,11 @@ data class Respond(
 fun Application.configureRouting(jwtService: JwtService) {
     install(StatusPages) {
         exception<Throwable> { call, cause ->
-            call.respondText(text = "500: $cause" , status = HttpStatusCode.InternalServerError)
+            println(
+                "[ERROR] Unhandled exception for ${call.request.httpMethod.value} ${call.request.uri}\n" +
+                    cause.stackTraceToString()
+            )
+            call.respondText(text = "500: ${cause::class.simpleName}" , status = HttpStatusCode.InternalServerError)
         }
     }
     routing {

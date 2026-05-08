@@ -1,40 +1,25 @@
 package com.example.routing
 
-import com.auth0.jwt.JWT
-import com.auth0.jwt.algorithms.Algorithm
 import com.example.Models.*
-import com.example.data.codestorage.CodeStorage
-import com.example.data.emailsender.EmailSender
-import com.example.database.SessionTable
+import com.example.data.locale.ResourceGetter
 import com.example.database.UserModel
 import com.example.database.FriendRequests
 import com.example.database.Friendships
 import com.example.tokens.JwtService
-import com.example.tokens.RefreshTokenGenerator
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import kotlinx.serialization.Serializable
-import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.JWTPrincipal
 
 // Exposed imports
-import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
-import org.jetbrains.exposed.sql.javatime.*
-import java.time.Instant
-import java.time.LocalDateTime
-import java.time.ZoneOffset
 import java.util.*
 
 //Enum imports
-import com.example.Models.FriendRequestStatus
-import com.example.Models.FriendRequestUpdateStatus
-import com.example.database.AvatarsTable
-import com.example.s3Client.S3Client
+import com.example.database.SettingsTable
+import com.example.firebase.PushSender
 
 private fun compareUuidAsPostgres(a: UUID, b: UUID): Int {
     val msbCompare = java.lang.Long.compareUnsigned(a.mostSignificantBits, b.mostSignificantBits)
@@ -90,6 +75,20 @@ fun Route.friendsRoutes(jwtService: JwtService) {
                     else -> "Friend request sent successfully"
                 }
 
+                val user = UserModel.getFullUser(toUserId)
+                val userSettings = SettingsTable.getServerSettingsInfo(toUserId)
+                if(user != null && user.pushToken != null && userSettings != null && userSettings.inAppNotifications) {
+                    val fromUser = UserModel.getFullUser(fromUUID)
+                    if(fromUser != null){
+                        PushSender.sendToToken(
+                            user.pushToken,
+                            ResourceGetter.t("push_message.friend_request_header"),
+                            ResourceGetter.tf("push_message.friend_request", fromUser.username ?: fromUser.email)
+                        )
+                    }
+                }
+
+
                 call.respond(
                     HttpStatusCode.Created,
                     FriendRequestActionDTO(true, message, result.requestId.toString())
@@ -139,6 +138,20 @@ fun Route.friendsRoutes(jwtService: JwtService) {
                     "ALREADY_FRIENDS" -> "You are already friends"
                     else -> "Friend request sent successfully"
                 }
+
+                val user = UserModel.getFullUser(toUserId)
+                val userSettings = SettingsTable.getServerSettingsInfo(toUserId)
+                if(user != null && user.pushToken != null && userSettings != null && userSettings.inAppNotifications) {
+                    val fromUser = UserModel.getFullUser(fromUUID)
+                    if(fromUser != null){
+                        PushSender.sendToToken(
+                            user.pushToken,
+                            ResourceGetter.t("push_message.friend_request_header"),
+                            ResourceGetter.tf("push_message.friend_request", fromUser.username ?: fromUser.email)
+                        )
+                    }
+                }
+
 
                 call.respond(
                     HttpStatusCode.Created,
@@ -294,10 +307,32 @@ fun Route.friendsRoutes(jwtService: JwtService) {
                         HttpStatusCode.Conflict,
                         FriendRequestActionDTO(false, "Request is not in pending status")
                     )
-                    "SUCCESS" -> call.respond(
-                        HttpStatusCode.OK,
-                        FriendRequestActionDTO(true, "Friend request accepted successfully", requestId)
-                    )
+                    "SUCCESS" -> {
+                        val request = FriendRequests.getRequestById(requestUUID)
+                        if(request != null) {
+                            val fromUser = UserModel.getFullUser(UUID.fromString(request.fromId))
+                            if(fromUser != null) {
+                                val userSettings = SettingsTable.getServerSettingsInfo(fromUser.id)
+                                val toUser = UserModel.getFullUser(UUID.fromString(request.toId))
+                                if(toUser != null && fromUser.pushToken != null && userSettings != null && userSettings.inAppNotifications) {
+                                    if(toUser != null){
+                                        PushSender.sendToToken(
+                                            fromUser.pushToken,
+                                            ResourceGetter.t("push_message.friend_request_answer_accept_header"),
+                                            ResourceGetter.tf("push_message.friend_request_answer_accept", fromUser.username ?: fromUser.email)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+
+
+                        call.respond(
+                            HttpStatusCode.OK,
+                            FriendRequestActionDTO(true, "Friend request accepted successfully", requestId)
+                        )
+                    }
                     else -> call.respond(
                         HttpStatusCode.InternalServerError,
                         FriendRequestActionDTO(false, "Unknown error")
@@ -343,10 +378,29 @@ fun Route.friendsRoutes(jwtService: JwtService) {
                         HttpStatusCode.Conflict,
                         FriendRequestActionDTO(false, "Request is not in pending status")
                     )
-                    "SUCCESS" -> call.respond(
-                        HttpStatusCode.OK,
-                        FriendRequestActionDTO(true, "Friend request rejected successfully", requestId)
-                    )
+                    "SUCCESS" -> {
+
+                        val request = FriendRequests.getRequestById(requestUUID)
+                        if(request != null) {
+                            val fromUser = UserModel.getFullUser(UUID.fromString(request.fromId))
+                            if(fromUser != null) {
+                                val userSettings = SettingsTable.getServerSettingsInfo(fromUser.id)
+                                val toUser = UserModel.getFullUser(UUID.fromString(request.toId))
+                                if(toUser != null && fromUser.pushToken != null && userSettings != null && userSettings.inAppNotifications) {
+                                    PushSender.sendToToken(
+                                        fromUser.pushToken,
+                                        ResourceGetter.t("push_message.friend_request_answer_reject_header"),
+                                        ResourceGetter.tf("push_message.friend_request_answer_reject", toUser.username ?: toUser.email)
+                                    )
+                                }
+                            }
+                        }
+
+                        call.respond(
+                            HttpStatusCode.OK,
+                            FriendRequestActionDTO(true, "Friend request rejected successfully", requestId)
+                        )
+                    }
                     else -> call.respond(
                         HttpStatusCode.InternalServerError,
                         FriendRequestActionDTO(false, "Unknown error")

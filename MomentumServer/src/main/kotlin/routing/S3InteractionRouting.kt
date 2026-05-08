@@ -1,7 +1,11 @@
 package com.example.routing
 
 import com.example.Models.*
+import com.example.Models.*
+import com.example.Respond
+import com.example.data.locale.ResourceGetter
 import com.example.database.*
+import com.example.firebase.PushSender
 import com.example.s3Client.S3Client
 import com.example.s3Client.StorageException
 import com.example.tokens.JwtService
@@ -97,19 +101,75 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
 
             val userId = UUID.fromString(principal.subject)
             val mediaId = UUID.fromString(body.mediaId)
-            val postId = UUID.randomUUID()
 
-            val post: PostModel? = when(body.status){
-                UploadingStatus.READY -> PostModel(postId, userId, body.title ?: "", true, createdAt = null, mediaId)
-                UploadingStatus.UPLOADING -> null // TODO продумать эти случаи
-                UploadingStatus.FAILED -> null
-            }
+            when (body.status) {
+                UploadingStatus.READY -> {
+                    MediaTable.changeStatus(mediaId, body.status)
 
-            if(post == null){
-                // TODO удалить медиа из бд
-            }
-            else{
-                PostsTable.insertNewPost(post)
+
+                    val existingPost = PostsTable.getPostByMediaId(mediaId)
+                    if (existingPost == null) {
+                        val postId = UUID.randomUUID()
+                        val post = PostModel(postId, userId, body.title ?: "", true, createdAt = null, mediaId)
+                        PostsTable.insertNewPost(post)
+
+                        val author = UserModel.getFullUser(userId)
+                        val authorName = author?.username ?: author?.email ?: userId.toString()
+                        val friends = transaction {Friendships.getFriendsWithDetails(userId)}
+
+                        friends.forEach { friend ->
+                            val friendId = UUID.fromString(friend.userId)
+
+                            val settings = SettingsTable.getServerSettingsInfo(friendId)
+                            if(settings != null && settings.publicationsEnabled){
+                                val friendInfo = UserModel.getFullUser(friendId)
+                                val pushToken = friendInfo?.pushToken?.takeIf { it.isNotBlank() }
+                                if (pushToken != null) {
+                                    val pushResult = PushSender.sendToToken(
+                                        token = pushToken,
+                                        title = ResourceGetter.t("push_message.friend_sent_a_moment_header"),
+                                        body = ResourceGetter.tf("push_message.friend_sent_a_moment", authorName)
+                                    )
+
+                                    when {
+                                        pushResult.isSuccess -> {
+                                            println("[INFO] Push sent for media $mediaId to user $userId with messageId ${pushResult.messageId}")
+                                        }
+                                        pushResult.shouldInvalidateToken -> {
+                                            UserModel.clearPushToken(friendId, pushToken)
+                                            println(
+                                                "[INFO] Invalid push token was cleared for friend $friendId " +
+                                                    "after failed push for media $mediaId: ${pushResult.errorCode ?: "UNKNOWN"}"
+                                            )
+                                        }
+                                        else -> {
+                                            println(
+                                                "[INFO] Push was not sent for media $mediaId to user $userId: " +
+                                                    "${pushResult.errorCode ?: "UNKNOWN"} ${pushResult.errorMessage ?: ""}"
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    println("[INFO] Skipping push for media $mediaId: user $userId has no push token")
+                                }
+                            }
+
+
+
+                        }
+
+
+                    } else {
+                        println("[INFO] Skipping duplicate READY status for media $mediaId")
+                    }
+                }
+                UploadingStatus.UPLOADING -> {
+                    MediaTable.changeStatus(mediaId, body.status)
+                }
+                UploadingStatus.FAILED -> {
+                    MediaTable.changeStatus(mediaId, body.status)
+                    MediaTable.deleteMedia(mediaId)
+                }
             }
 
             call.respond(HttpStatusCode.OK)
@@ -149,7 +209,6 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
                                     ).map { (key, value) ->
                                         ReactionsDTO(
                                             emoji = key,
-                                            count = value.size,
                                             users = value
                                         )
                                     }
@@ -199,7 +258,6 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
                                     ).map { (key, value) ->
                                         ReactionsDTO(
                                             emoji = key,
-                                            count = value.size,
                                             users = value
                                         )
                                     }
