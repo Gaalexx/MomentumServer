@@ -10,6 +10,7 @@ import io.ktor.server.auth.principal
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
+import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import java.util.UUID
 
@@ -70,6 +71,16 @@ fun Route.postActionsRoutes(jwtService: JwtService){
             }
 
             call.respond(HttpStatusCode.OK)
+        }
+
+        get("/hidden") {
+            val principal = call.principal<JWTPrincipal>() ?: return@get call.respond(HttpStatusCode.Unauthorized)
+
+            val userId = UUID.fromString(principal.subject)
+
+            val listToSend = PostActionsTable.getHiddenPosts(userId)
+
+            call.respond(HttpStatusCode.OK, listToSend)
         }
 
         post("/hide/{post_id}") {
