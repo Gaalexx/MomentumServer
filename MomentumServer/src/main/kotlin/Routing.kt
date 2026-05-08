@@ -26,7 +26,7 @@ fun Application.configureRouting(jwtService: JwtService) {
             route("/momentum"){
                 authRoutes(jwtService)
                 s3Routes(jwtService)
-                reactionsRoutes(jwtService)
+                postActionsRoutes(jwtService)
                 accountRoutes(jwtService)
                 get("/hello") {
                     call.respond(Respond("Hello World!"))

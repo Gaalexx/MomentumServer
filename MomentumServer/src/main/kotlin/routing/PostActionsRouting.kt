@@ -1,7 +1,7 @@
 package com.example.routing
 
-import com.example.Models.ReactionsModel
-import com.example.database.ReactionsTable
+import com.example.Models.PostActionModel
+import com.example.database.PostActionsTable
 import com.example.tokens.JwtService
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.auth.authenticate
@@ -13,7 +13,7 @@ import io.ktor.server.routing.delete
 import io.ktor.server.routing.post
 import java.util.UUID
 
-fun Route.reactionsRoutes(jwtService: JwtService){
+fun Route.postActionsRoutes(jwtService: JwtService){
 
     authenticate("jwt"){
         post("/react/{post_id}/{reaction_type}") {
@@ -27,16 +27,14 @@ fun Route.reactionsRoutes(jwtService: JwtService){
                 ?: return@post call.respond(
                     HttpStatusCode.BadRequest
                 )
-            val id = UUID.randomUUID()
             val userId = UUID.fromString(principal.subject)
 
             try {
-                ReactionsTable.insertNewReaction(
-                    ReactionsModel(
-                        id = id,
+                PostActionsTable.insertNewAction(
+                    PostActionModel(
                         userId = userId,
                         postId = UUID.fromString(postId),
-                        reactionType = reactionType,
+                        actionType = reactionType,
                     )
                 )
             } catch (e: IllegalArgumentException) {
@@ -60,15 +58,63 @@ fun Route.reactionsRoutes(jwtService: JwtService){
             val userId = UUID.fromString(principal.subject)
 
             try {
-                ReactionsTable.deleteReaction(
+                PostActionsTable.deleteAction(
                     userId = userId,
                     postId = UUID.fromString(postId),
-                    reactionType = reactionType,
+                    actionType = reactionType,
                 )
             } catch (e: IllegalArgumentException) {
                 call.respond(HttpStatusCode.BadRequest, "Invalid UUID format ${e.message ?: ""}")
             } catch (e : Exception) {
-                call.respond(HttpStatusCode.BadRequest, "Error deleteReaction ${e.message ?: ""}")
+                call.respond(HttpStatusCode.BadRequest, "Error deleteAction (reaction) ${e.message ?: ""}")
+            }
+
+            call.respond(HttpStatusCode.OK)
+        }
+
+        post("/hide/{post_id}") {
+            val principal = call.principal<JWTPrincipal>() ?: return@post call.respond(HttpStatusCode.Unauthorized)
+
+            val postId = call.parameters["post_id"]
+                ?: return@post call.respond(
+                    HttpStatusCode.BadRequest
+                )
+            val userId = UUID.fromString(principal.subject)
+
+            try {
+                PostActionsTable.insertNewAction(
+                    PostActionModel(
+                        userId = userId,
+                        postId = UUID.fromString(postId),
+                        actionType = "HIDE",
+                    )
+                )
+            } catch (e: IllegalArgumentException) {
+                call.respond(HttpStatusCode.BadRequest, "Invalid UUID format ${e.message ?: ""}")
+            }
+
+            call.respond(HttpStatusCode.OK)
+        }
+
+        delete("/show/{post_id}") {
+            val principal = call.principal<JWTPrincipal>() ?: return@delete call.respond(HttpStatusCode.Unauthorized)
+
+            val postId = call.parameters["post_id"]
+                ?: return@delete call.respond(
+                    HttpStatusCode.BadRequest
+                )
+            val userId = UUID.fromString(principal.subject)
+
+            try {
+                PostActionsTable.deleteAction(
+                    userId = userId,
+                    postId = UUID.fromString(postId),
+                    actionType = "HIDE",
+                )
+            } catch (e: IllegalArgumentException) {
+                call.respond(HttpStatusCode.BadRequest, "Invalid UUID format ${e.message ?: ""}")
+            } catch (e : Exception) {
+                call.respond(HttpStatusCode.BadRequest, "Error deleteAction (hidden) ${e.message ?: ""}")
             }
 
             call.respond(HttpStatusCode.OK)

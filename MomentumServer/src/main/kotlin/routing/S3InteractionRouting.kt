@@ -1,14 +1,11 @@
 package com.example.routing
 
 import com.example.Models.*
-import com.example.Models.*
-import com.example.Respond
 import com.example.database.*
 import com.example.s3Client.S3Client
 import com.example.s3Client.StorageException
 import com.example.tokens.JwtService
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.application.call
 import io.ktor.server.auth.authenticate
 import io.ktor.server.auth.jwt.JWTPrincipal
 import io.ktor.server.auth.principal
@@ -16,7 +13,6 @@ import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
-import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.Duration
@@ -132,7 +128,7 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
                     val posts = PostsTable.getPostsOfUser(UUID.fromString(friend.userId))
                     posts.forEach { post ->
                         val media = MediaTable.getMediaById(post.mediaId)
-                        val reactions = ReactionsTable.getAllPostReactions(userId, post.id)
+                        val reactions = PostActionsTable.getAllPostReactions(userId, post.id)
 
                         if(media != null){
                             val presignedURL = S3Client.getPresignedObjectUrl(media.objectKey)
@@ -148,7 +144,7 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
                                     createdAt = post.createdAt,
                                     mediaType = media.mediaType,
                                     reactions = reactions.groupBy(
-                                        keySelector = { it.reactionType },
+                                        keySelector = { it.actionType },
                                         valueTransform = { it.userId.toString() }
                                     ).map { (key, value) ->
                                         ReactionsDTO(
@@ -182,7 +178,7 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
             if(user != null){
                 listOfPosts.forEach { it ->
                     val media = MediaTable.getMediaById(it.mediaId)
-                    val reactions = ReactionsTable.getMyPostReactions(it.id)
+                    val reactions = PostActionsTable.getMyPostReactions(it.id)
 
                     if(media != null){
                         val presignedURL = S3Client.getPresignedObjectUrl(media.objectKey)
@@ -198,7 +194,7 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
                                 createdAt = it.createdAt,
                                 mediaType = media.mediaType,
                                 reactions = reactions.groupBy(
-                                        keySelector = { it.reactionType },
+                                        keySelector = { it.actionType },
                                         valueTransform = { it.userId.toString() }
                                     ).map { (key, value) ->
                                         ReactionsDTO(
