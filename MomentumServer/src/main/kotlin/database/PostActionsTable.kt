@@ -12,7 +12,7 @@ import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.util.UUID
 
-object PostActionsTable : Table(name = "reactions") {
+object PostActionsTable : Table(name = "post_actions") {
     private val id = uuid("id").uniqueIndex()
     private val userId = uuid("user_id")
     private val postId = uuid("post_id")
