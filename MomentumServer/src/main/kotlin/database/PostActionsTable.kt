@@ -71,14 +71,14 @@ object PostActionsTable : Table(name = "post_actions") {
                 .toList()
         }
 
-    fun getHiddenPosts(userId: UUID) : List<UUID> = transaction {
+    fun getHiddenPosts(userId: UUID) : List<String> = transaction {
         PostActionsTable
             .select(PostActionsTable.postId)
             .where{
                 (PostActionsTable.userId eq userId) and (PostActionsTable.actionType eq "HIDE")
             }
             .map{ row ->
-                row[PostActionsTable.postId]
+                row[PostActionsTable.postId].toString()
             }
     }
 
