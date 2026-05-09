@@ -75,10 +75,10 @@ object SessionTable : Table("sessions") {
         deletedRows > 0
     }
 
-    fun deleteAllUserSessions(userId: UUID): Int = transaction {
-        SessionTable.deleteWhere {
-            SessionTable.userId eq userId
-        }
+    fun deleteAllUserSessions(userId: UUID): Boolean {
+        return transaction {
+            SessionTable.deleteWhere { SessionTable.userId eq userId }
+        } > 0
     }
 
 }

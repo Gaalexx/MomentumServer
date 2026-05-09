@@ -104,4 +104,18 @@ object MediaTable : Table(name = "media") {
             }
             .singleOrNull()
     }
+
+    fun getMediaKeys(userId: UUID): List<String> {
+        val userMedia = MediaTable.selectAll()
+            .where { MediaTable.userId eq userId }
+            .toList()
+
+        return userMedia.map { it[MediaTable.objectKey] }
+    }
+
+    fun deleteAllMedia(userId: UUID): Boolean {
+        return transaction {
+            MediaTable.deleteWhere { MediaTable.userId eq userId }
+        } > 0
+    }
 }

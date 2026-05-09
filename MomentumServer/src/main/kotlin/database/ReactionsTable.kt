@@ -2,6 +2,7 @@ package com.example.database
 
 import com.example.Models.ReactionsModel
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
@@ -73,5 +74,19 @@ object ReactionsTable : Table(name = "reactions") {
                 (ReactionsTable.reactionType eq reactionType)
             }
         }
+    }
+
+    fun deleteAllReactions(userId: UUID): Boolean {
+        return transaction {
+            ReactionsTable.deleteWhere { ReactionsTable.userId eq userId }
+        } > 0
+    }
+
+    fun deleteReactionsOnUserPosts(postIds: List<UUID>): Boolean {
+        if (postIds.isEmpty()) return true
+
+        return transaction {
+            ReactionsTable.deleteWhere { ReactionsTable.postId inList postIds }
+        } > 0
     }
 }

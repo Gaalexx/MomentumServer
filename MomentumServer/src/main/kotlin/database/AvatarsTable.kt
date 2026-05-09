@@ -7,6 +7,7 @@ import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
 import java.util.UUID
@@ -98,4 +99,19 @@ object AvatarsTable : Table(name = "avatars") {
             AvatarsTable.deleteWhere { AvatarsTable.id eq avatarId }
         }
     }
+
+    fun getAvatarKeys(userId: UUID): List<String> {
+        val userAvatars = AvatarsTable.selectAll()
+            .where { AvatarsTable.userId eq userId }
+            .toList()
+
+        return userAvatars.map { it[AvatarsTable.objectKey] }
+    }
+
+    fun deleteAllAvatars(userId: UUID): Boolean {
+        return transaction {
+            AvatarsTable.deleteWhere { AvatarsTable.userId eq userId }
+        } > 0
+    }
+
 }

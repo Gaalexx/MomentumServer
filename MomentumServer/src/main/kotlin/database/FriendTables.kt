@@ -456,4 +456,20 @@ object Friendships : Table("friendships") {
 
         return "SUCCESS"
     }
+
+    fun deleteAllFriendships(userId: UUID): Boolean {
+        return transaction {
+            Friendships.deleteWhere {
+                (Friendships.userId1 eq userId) or (Friendships.userId2 eq userId)
+            }
+        } > 0
+    }
+
+    fun deleteAllFriendRequests(userId: UUID): Boolean {
+        return transaction {
+            FriendRequests.deleteWhere {
+                (FriendRequests.fromUserId eq userId) or (FriendRequests.toUserId eq userId)
+            }
+        } > 0
+    }
 }

@@ -1,7 +1,9 @@
 package com.example.database
 
 import com.example.Models.ServerSettingsStateDTO
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -88,5 +90,11 @@ object SettingsTable : Table(name = "settings") {
                 it[allowAddFromAnyone] = false
             }
         }
+    }
+
+    fun deleteAllSettings(userId: UUID): Boolean {
+        return transaction {
+            SettingsTable.deleteWhere { SettingsTable.userId eq userId }
+        } > 0
     }
 }
