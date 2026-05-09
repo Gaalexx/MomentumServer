@@ -42,3 +42,14 @@ data class SettingsActionDTO(
     val message: String,
     val newState: ServerSettingsStateDTO? = null
 )
+
+@Serializable
+data class SettingsBooleanDTO(
+    val success: Boolean,
+    val message: String,
+)
+
+@Serializable
+data class SettingsCheckPasswordDTO(
+    val password: String
+)

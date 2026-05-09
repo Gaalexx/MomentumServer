@@ -2,6 +2,22 @@ package com.example.database
 
 import com.example.data.hashers.IHasher
 import com.example.data.hashers.PasswordHasher
+import com.example.database.AvatarsTable.deleteAllAvatars
+import com.example.database.AvatarsTable.getAvatarKeys
+import com.example.database.Friendships.deleteAllFriendRequests
+import com.example.database.Friendships.deleteAllFriendships
+import com.example.database.MediaTable.deleteAllMedia
+import com.example.database.MediaTable.getMediaKeys
+import com.example.database.PostActionsTable.deleteActionsOnPosts
+import com.example.database.PostActionsTable.deleteAllActions
+import com.example.database.PostsTable.deleteAllPosts
+import com.example.database.PostsTable.getPostsIds
+import com.example.database.SessionTable.deleteAllUserSessions
+import com.example.database.SettingsTable.deleteAllSettings
+import com.example.s3Client.S3Client
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.jetbrains.exposed.sql.Alias
 import org.jetbrains.exposed.sql.Op
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
@@ -163,6 +179,16 @@ object UserModel : Table("users") {
         return passwordHasher.compareWithHashed(password, hashedPassword)
     }
 
+    fun getEmailById(id: UUID): String? {
+        return transaction {
+            UserModel
+                .selectAll()
+                .where { UserModel.id eq id }
+                .map { it[UserModel.email] }
+                .singleOrNull()
+        }
+    }
+
     fun getIdByEmail(email: String): UUID? {
         return transaction {
             UserModel
@@ -254,9 +280,51 @@ object UserModel : Table("users") {
         }
     }
 
-    fun deleteUser(userId: UUID) {
-        transaction {
+    fun deleteUser(userId: UUID): Boolean {
+        return transaction {
             UserModel.deleteWhere { UserModel.id eq userId }
+        } > 0
+    }
+
+    @OptIn(DelicateCoroutinesApi::class)
+    suspend fun deleteAllUserData(userId: UUID): Boolean {
+        return withContext(kotlinx.coroutines.Dispatchers.IO) {
+            transaction {
+                try {
+                    val mediaKeys = getMediaKeys(userId)
+                    val avatarKeys = getAvatarKeys(userId)
+                    val userPostIds = getPostsIds(userId)
+
+                    deleteAllActions(userId)
+                    deleteActionsOnPosts(userPostIds)
+                    deleteAllPosts(userId)
+                    deleteAllMedia(userId)
+                    deleteAllAvatars(userId)
+                    deleteAllFriendships(userId)
+                    deleteAllFriendRequests(userId)
+                    deleteAllUserSessions(userId)
+                    deleteAllSettings(userId)
+                    val userDeleted = deleteUser(userId)
+
+                    if (mediaKeys.isNotEmpty() || avatarKeys.isNotEmpty()) {
+                        kotlinx.coroutines.GlobalScope.launch {
+                            (mediaKeys + avatarKeys).forEach { key ->
+                                try {
+                                    S3Client.deleteObject(key)
+                                } catch (e: Exception) {
+                                    println("Failed to delete S3 object: $key, error: ${e.message}")
+                                }
+                            }
+                        }
+                    }
+
+                    userDeleted
+                } catch (e: Exception) {
+                    println("Error deleting user data: ${e.message}")
+                    e.printStackTrace()
+                    false
+                }
+            }
         }
     }
 }

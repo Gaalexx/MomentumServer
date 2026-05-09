@@ -2,6 +2,7 @@ package com.example.database
 
 import com.example.Models.PostActionModel
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.deleteWhere
@@ -90,5 +91,19 @@ object PostActionsTable : Table(name = "post_actions") {
                 (PostActionsTable.actionType eq actionType)
             }
         }
+    }
+
+    fun deleteAllActions(userId: UUID): Boolean {
+        return transaction {
+            PostActionsTable.deleteWhere { PostActionsTable.userId eq userId }
+        } > 0
+    }
+
+    fun deleteActionsOnPosts(postIds: List<UUID>): Boolean {
+        if (postIds.isEmpty()) return true
+
+        return transaction {
+            PostActionsTable.deleteWhere { PostActionsTable.postId inList postIds }
+        } > 0
     }
 }

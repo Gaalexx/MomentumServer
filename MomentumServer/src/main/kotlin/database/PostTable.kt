@@ -101,4 +101,18 @@ object PostsTable : Table("posts") {
         posts.firstOrNull()
     }
 
+    fun getPostsIds(userId: UUID): List<UUID> {
+        return transaction {
+            PostsTable.select(PostsTable.id)
+                .where { PostsTable.userId eq userId }
+                .map { it[PostsTable.id] }
+        }
+    }
+
+    fun deleteAllPosts(userId: UUID): Boolean {
+        return transaction {
+            PostsTable.deleteWhere { PostsTable.userId eq userId }
+        } > 0
+    }
+
 }

@@ -2,7 +2,13 @@ package com.example.routing
 
 
 import com.example.Models.*
+import com.example.data.codestorage.CodeStorage
+import com.example.data.emailsender.EmailSender
+import com.example.database.SessionTable
 import com.example.database.SettingsTable
+import com.example.database.UserModel
+import com.example.database.UserModel.deleteAllUserData
+import com.example.tokens.RefreshTokenGenerator
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
@@ -238,11 +244,11 @@ fun Route.settingsRoutes() {
             )
         }
 
-        post("/get-settings-info") {
-            val userId = call.safeUserId() ?: return@post
+        get("/get-settings-info") {
+            val userId = call.safeUserId() ?: return@get
 
             val settings = SettingsTable.getServerSettingsInfo(userId)
-                ?: return@post call.respond(
+                ?: return@get call.respond(
                     HttpStatusCode.NotFound,
                     SettingsActionDTO(false, "Settings not found")
                 )
@@ -253,5 +259,74 @@ fun Route.settingsRoutes() {
             )
         }
 
+        post("/check-password"){
+            val userId = call.safeUserId() ?: return@post
+
+            val body = try { call.receive<SettingsCheckPasswordDTO>()
+            } catch (e: Exception) {
+                return@post call.respond(
+                    HttpStatusCode.BadRequest,
+                    SettingsBooleanDTO(false, "Invalid request body")
+                )
+            }
+
+            if(userId == null){
+                call.respond(HttpStatusCode.BadRequest,
+                    SettingsBooleanDTO(false, "UserId doesn't exist"))
+                return@post
+            }
+            else{
+                if (!UserModel.passwordIsValid(userId, body.password)){
+                    call.respond(HttpStatusCode.BadRequest,
+                        SettingsBooleanDTO(false, "Wrong password"))
+                    return@post
+                }
+            }
+
+            call.respond(HttpStatusCode.OK,
+                SettingsBooleanDTO(true, "Password checked successfully"))
+            return@post
+        }
+
+        post("/send-code"){
+            val userId = call.safeUserId() ?: return@post
+            val email = UserModel.getEmailById(userId)?: return@post
+
+            val code = (100000..999999).random().toString()
+            CodeStorage.saveCode(email, code)
+            val sendResult = EmailSender.sendVerificationCode(email, code)
+            sendResult.onSuccess {
+                call.respond(HttpStatusCode.OK, SettingsBooleanDTO(true, "Successfully sent"))
+            }.onFailure {
+                call.respond(HttpStatusCode.InternalServerError, SettingsBooleanDTO(false, "Internal server error"))
+            }
+        }
+
+        post("/check-code") {
+            val body = call.receive<CheckCodeRequestDTO>()
+            val userId = call.safeUserId() ?: return@post
+            val email = UserModel.getEmailById(userId)?: return@post
+
+            val isValid = CodeStorage.verifyCode(email, body.code)
+            if(isValid){
+                call.respond(HttpStatusCode.OK, SettingsBooleanDTO(true, "Successfully checked"))
+            }
+            else{
+                call.respond(HttpStatusCode.OK, SettingsBooleanDTO(false, "Invalid code"))
+            }
+        }
+
+        post("/delete-account") {
+            val userId = call.safeUserId() ?: return@post
+
+            val isDeleted = deleteAllUserData(userId)
+
+            if(isDeleted){
+                call.respond(HttpStatusCode.OK, SettingsBooleanDTO(true, "Successfully deleted"))
+            }
+            else{
+                call.respond(HttpStatusCode.OK, SettingsBooleanDTO(false, "User not found"))
+            }
+        }
     }
 }
