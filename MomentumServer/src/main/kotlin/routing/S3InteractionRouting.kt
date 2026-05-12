@@ -345,6 +345,7 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
 
             val postDeleted = PostsTable.deletePost(postId)
             val mediaDeleted = if (media != null) MediaTable.deleteMedia(post.mediaId) else true
+            val reactionsDeleted = PostActionsTable.deleteActionsOnPosts(listOf(postId))
 
             if (!postDeleted) {
                 return@delete call.respond(
@@ -352,6 +353,17 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
                     DeletePostResponseDTO(
                         success = false,
                         message = "Failed to delete post from database",
+                        s3Deleted = s3DeleteSuccess,
+                        postId = postIdStr
+                    )
+                )
+            }
+            if (!reactionsDeleted) {
+                return@delete call.respond(
+                    HttpStatusCode.InternalServerError,
+                    DeletePostResponseDTO(
+                        success = false,
+                        message = "Failed to delete reactions on post from database",
                         s3Deleted = s3DeleteSuccess,
                         postId = postIdStr
                     )
