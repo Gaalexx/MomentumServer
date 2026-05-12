@@ -319,7 +319,7 @@ fun Route.friendsRoutes(jwtService: JwtService) {
                                         PushSender.sendToToken(
                                             fromUser.pushToken,
                                             ResourceGetter.t("push_message.friend_request_answer_accept_header"),
-                                            ResourceGetter.tf("push_message.friend_request_answer_accept", fromUser.username ?: fromUser.email)
+                                            ResourceGetter.tf("push_message.friend_request_answer_accept", toUser.username ?: toUser.email)
                                         )
                                     }
                                 }
