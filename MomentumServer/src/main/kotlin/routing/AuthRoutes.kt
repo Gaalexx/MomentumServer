@@ -71,10 +71,12 @@ fun Route.authRoutes(jwtService: JwtService) {
                 ?: return@post call.respond(HttpStatusCode.BadRequest)
 
             val userId = UserModel.findIdByVkId(vkId) ?: run {
+                val screenName = VKApiService.getScreenName(body.vkAccessToken)
+                val usernameBase = screenName?.takeIf { it.isNotBlank() }
+                    ?: "${vkUser.firstName}${vkUser.lastName}"
                 val newUserId = UserModel.registerNewUserWithVk(
                     vkId = vkId,
-                    firstName = vkUser.firstName,
-                    lastName = vkUser.lastName
+                    usernameBase = usernameBase
                 )
                 SettingsTable.createDefaultSettings(newUserId)
                 newUserId

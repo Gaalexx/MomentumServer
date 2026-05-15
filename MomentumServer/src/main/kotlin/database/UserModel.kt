@@ -57,7 +57,7 @@ object UserModel : Table("users") {
     private val registered_at = datetime("registered_at").default(LocalDateTime.now())
     private val telephone = varchar("telephone", 20).nullable()
     private val email = varchar("email", 255)
-    private val username = varchar("username", 50).nullable()
+    private val username = varchar("username", 50).nullable().uniqueIndex()
     private val push_token = varchar("push_token", 256).nullable()
     private val vk_id = long("vk_id").nullable().uniqueIndex()
     override val primaryKey = PrimaryKey(UserModel.id)
@@ -136,15 +136,32 @@ object UserModel : Table("users") {
         }
     }
 
-    fun registerNewUserWithVk(vkId: Long, firstName: String, lastName: String): UUID {
+    private fun uniqueUsernameFor(base: String): String {
+        val sanitized = base.lowercase()
+            .replace(Regex("[^a-z0-9_]"), "_")
+            .replace(Regex("_+"), "_")
+            .trim('_')
+            .take(45)
+            .ifEmpty { "user" }
+        var candidate = sanitized
+        var counter = 1
+        while (!UserModel.selectAll().where { username eq candidate }.empty()) {
+            candidate = "${sanitized.take(44)}$counter"
+            counter++
+        }
+        return candidate
+    }
+
+    fun registerNewUserWithVk(vkId: Long, usernameBase: String): UUID {
         val userId = UUID.randomUUID()
         transaction {
+            val uniqueUsername = uniqueUsernameFor(usernameBase)
             UserModel.insert {
                 it[id] = userId
                 it[password] = passwordHasher.hash(UUID.randomUUID().toString())
                 it[email] = "vk_${vkId}@vkid.placeholder"
                 it[vk_id] = vkId
-                it[username] = "$firstName $lastName".trim().ifEmpty { null }
+                it[username] = uniqueUsername
             }
         }
         return userId

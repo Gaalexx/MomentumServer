@@ -63,20 +63,21 @@ fun Route.accountRoutes(jwtService: JwtService) {
             val usedId = UUID.fromString(principal.subject)
 
             val user = UserModel.getFullUser(usedId)
-            if(user != null){
+            if (user != null) {
                 val body = call.receive<EditAccountDTO>()
+                if (!body.username.isNullOrBlank()) {
+                    val ownerId = UserModel.getIdByUserName(body.username)
+                    if (ownerId != null && ownerId != usedId) {
+                        call.respond(HttpStatusCode.Conflict)
+                        return@post
+                    }
+                }
                 UserModel.updateFullUser(usedId, body.username, body.email, body.phone)
                 call.respond(
                     HttpStatusCode.OK,
-                    EditAccountDTO(
-                        user.username,
-                        user.email,
-                        user.phoneNumber,
-                        null
-                    )
+                    EditAccountDTO(user.username, user.email, user.phoneNumber, null)
                 )
-            }
-            else{
+            } else {
                 call.respond(HttpStatusCode.BadRequest)
             }
         }

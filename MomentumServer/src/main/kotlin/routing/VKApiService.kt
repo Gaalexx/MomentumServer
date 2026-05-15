@@ -26,10 +26,35 @@ data class VKUser(
     val phone: String? = null
 )
 
+@Serializable
+data class VKUsersGetResponse(
+    val response: List<VKClassicUser>? = null
+)
+
+@Serializable
+data class VKClassicUser(
+    @SerialName("screen_name") val screenName: String? = null
+)
+
 object VKApiService {
     private val httpClient = HttpClient(CIO) {
         install(ContentNegotiation) {
             json(Json { ignoreUnknownKeys = true })
+        }
+    }
+
+    suspend fun getScreenName(accessToken: String): String? {
+        return try {
+            val response = httpClient.get("https://api.vk.com/method/users.get") {
+                parameter("access_token", accessToken)
+                parameter("fields", "screen_name")
+                parameter("v", "5.131")
+            }
+            if (response.status.isSuccess()) {
+                response.body<VKUsersGetResponse>().response?.firstOrNull()?.screenName
+            } else null
+        } catch (e: Exception) {
+            null
         }
     }
 
