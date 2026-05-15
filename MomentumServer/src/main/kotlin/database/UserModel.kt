@@ -59,6 +59,7 @@ object UserModel : Table("users") {
     private val email = varchar("email", 255)
     private val username = varchar("username", 50).nullable()
     private val push_token = varchar("push_token", 256).nullable()
+    private val vk_id = long("vk_id").nullable().uniqueIndex()
     override val primaryKey = PrimaryKey(UserModel.id)
 
 
@@ -120,6 +121,30 @@ object UserModel : Table("users") {
                 it[id] = userId
                 it[password] = passwordHasher.hash(userPassword)
                 it[email] = userEmail
+            }
+        }
+        return userId
+    }
+
+    fun findIdByVkId(vkId: Long): UUID? {
+        return transaction {
+            UserModel
+                .selectAll()
+                .where { UserModel.vk_id eq vkId }
+                .map { it[UserModel.id] }
+                .singleOrNull()
+        }
+    }
+
+    fun registerNewUserWithVk(vkId: Long, firstName: String, lastName: String): UUID {
+        val userId = UUID.randomUUID()
+        transaction {
+            UserModel.insert {
+                it[id] = userId
+                it[password] = passwordHasher.hash(UUID.randomUUID().toString())
+                it[email] = "vk_${vkId}@vkid.placeholder"
+                it[vk_id] = vkId
+                it[username] = "$firstName $lastName".trim().ifEmpty { null }
             }
         }
         return userId

@@ -10,3 +10,5 @@ jwt:
   audience: ${JWT_AUDIENCE}
   realm: ${JWT_REALM}
   secret: ${JWT_SECRET}
+vk:
+  client_id: "54594614"
