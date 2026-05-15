@@ -17,7 +17,7 @@ RUN --mount=type=cache,target=/root/.gradle \
 COPY src ./src
 
 RUN --mount=type=cache,target=/root/.gradle \
-    ./gradlew build --no-daemon -x test
+    ./gradlew build --no-daemon --no-build-cache -x test
 
 FROM eclipse-temurin:21-jre
 
