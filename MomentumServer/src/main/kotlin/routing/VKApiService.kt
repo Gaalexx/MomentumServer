@@ -43,16 +43,18 @@ object VKApiService {
         }
     }
 
-    suspend fun getScreenName(accessToken: String): String? {
+    suspend fun getScreenName(accessToken: String, userId: Long): String? {
         return try {
             val response = httpClient.get("https://api.vk.com/method/users.get") {
                 parameter("access_token", accessToken)
+                parameter("user_ids", userId)
                 parameter("fields", "screen_name")
                 parameter("v", "5.131")
             }
-            if (response.status.isSuccess()) {
-                response.body<VKUsersGetResponse>().response?.firstOrNull()?.screenName
-            } else null
+            response.body<VKUsersGetResponse>().response
+                ?.firstOrNull()
+                ?.screenName
+                ?.takeIf { it.isNotBlank() }
         } catch (e: Exception) {
             null
         }
