@@ -11,10 +11,10 @@ COPY build.gradle.kts settings.gradle.kts gradle.properties ./
 RUN sed -i 's/\r$//' gradlew
 RUN chmod +x gradlew
 
+COPY src ./src
+
 RUN --mount=type=cache,target=/root/.gradle \
     ./gradlew dependencies --no-daemon
-
-COPY src ./src
 
 RUN --mount=type=cache,target=/root/.gradle \
     ./gradlew build --no-daemon -x test

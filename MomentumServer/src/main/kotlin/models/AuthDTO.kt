@@ -1,5 +1,6 @@
 package com.example.Models
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -29,4 +30,11 @@ data class LogoutRequestDTO(
 data class LogoutResponseDTO(
     val success: Boolean,
     val message: String
+)
+
+
+@Serializable
+data class AuthorizeVKRequestDTO(
+    val vkAccessToken: String,
+    val deviceInfo: String
 )

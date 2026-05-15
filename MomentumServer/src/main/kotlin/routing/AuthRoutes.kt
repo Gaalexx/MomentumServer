@@ -42,22 +42,51 @@ fun Route.authRoutes(jwtService: JwtService) {
         }
     }
 
-    post("/auth"){
-        val body = call.receive<GetJWTDTO>()
-        if(body.token != null){
-            val tokenInfo = SessionTable.getSessionInfo(body.token)
-            if(tokenInfo != null){
-                val tokenToSend = jwtService.createAccessToken(tokenInfo.userId.toString(), tokenInfo.sessionId.toString())
-                call.respond(HttpStatusCode.OK, GetJWTDTO(tokenToSend))
+    route("/auth"){
+        post{
+            val body = call.receive<GetJWTDTO>()
+            if(body.token != null){
+                val tokenInfo = SessionTable.getSessionInfo(body.token)
+                if(tokenInfo != null){
+                    val tokenToSend = jwtService.createAccessToken(tokenInfo.userId.toString(), tokenInfo.sessionId.toString())
+                    call.respond(HttpStatusCode.OK, GetJWTDTO(tokenToSend))
+                }
+                else{
+                    call.respond(HttpStatusCode.OK, GetJWTDTO(null))
+                }
             }
             else{
-                call.respond(HttpStatusCode.OK, GetJWTDTO(null))
+                call.respond(HttpStatusCode.BadRequest, GetJWTDTO(null))
             }
         }
-        else{
-            call.respond(HttpStatusCode.BadRequest, GetJWTDTO(null))
+
+        post("/vk") {
+            val vkClientId = environment.config.property("vk.client_id").getString()
+            val body = call.receive<AuthorizeVKRequestDTO>()
+
+            val vkUser = VKApiService.getUserInfo(body.vkAccessToken, vkClientId)
+                ?: return@post call.respond(HttpStatusCode.Unauthorized)
+
+            val vkId = vkUser.userId.toLongOrNull()
+                ?: return@post call.respond(HttpStatusCode.BadRequest)
+
+            val userId = UserModel.findIdByVkId(vkId) ?: run {
+                val screenName = VKApiService.getScreenName(body.vkAccessToken, vkId)
+                val newUserId = UserModel.registerNewUserWithVk(
+                    vkId = vkId,
+                    usernameBase = screenName ?: "id$vkId"
+                )
+                SettingsTable.createDefaultSettings(newUserId)
+                newUserId
+            }
+
+            val token = RefreshTokenGenerator.generate()
+            SessionTable.addNewSession(userId, token, body.deviceInfo)
+
+            call.respond(HttpStatusCode.OK, LoginResponseDTO(token))
         }
     }
+
 
 
     post("/check-email") {
@@ -288,4 +317,6 @@ fun Route.authRoutes(jwtService: JwtService) {
             )
         }
     }
+
+
 }
