@@ -8,7 +8,6 @@ import com.example.database.SessionTable
 import com.example.database.SettingsTable
 import com.example.database.UserModel
 import com.example.firebase.PushSender
-import com.example.services.VKApiService
 import com.example.tokens.JwtService
 import com.example.tokens.RefreshTokenGenerator
 import io.ktor.http.*

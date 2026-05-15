@@ -11,13 +11,13 @@ COPY build.gradle.kts settings.gradle.kts gradle.properties ./
 RUN sed -i 's/\r$//' gradlew
 RUN chmod +x gradlew
 
-RUN --mount=type=cache,target=/root/.gradle \
-    ./gradlew dependencies --no-daemon
-
 COPY src ./src
 
 RUN --mount=type=cache,target=/root/.gradle \
-    ./gradlew build --no-daemon --no-build-cache -x test
+    ./gradlew dependencies --no-daemon
+
+RUN --mount=type=cache,target=/root/.gradle \
+    ./gradlew build --no-daemon -x test
 
 FROM eclipse-temurin:21-jre
 
