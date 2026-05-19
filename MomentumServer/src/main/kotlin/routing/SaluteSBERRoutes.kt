@@ -117,10 +117,10 @@ private suspend fun ApplicationCall.respondTranscript(postIdRaw: String?) {
         return respond(HttpStatusCode.Conflict, TranscriptErrorDTO("Post media is not ready"))
     }
 
-    val presignedUrl = S3Client.getPresignedObjectUrl(media.objectKey)
     transcriptionStates[postId] = TranscriptionState.Processing
 
     try {
+        val presignedUrl = S3Client.getPresignedObjectUrl(media.objectKey)
         val recognition = SaluteSberSpeechService.recognizeByPresignedUrl(presignedUrl, media)
         transcriptionStates[postId] = TranscriptionState.Done(recognition.text)
         respond(
@@ -164,6 +164,12 @@ private suspend fun ApplicationCall.respondTranscript(postIdRaw: String?) {
         respond(
             HttpStatusCode.BadGateway,
             TranscriptErrorDTO("Invalid SaluteSpeech response", e.message)
+        )
+        transcriptionStates[postId] = TranscriptionState.Error
+    } catch (e: Exception) {
+        respond(
+            HttpStatusCode.BadGateway,
+            TranscriptErrorDTO("Transcription request failed", e.message)
         )
         transcriptionStates[postId] = TranscriptionState.Error
     }
