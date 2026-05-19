@@ -55,6 +55,7 @@ object MediaTable : Table(name = "media") {
                 it[mimeType] = media.mimeType
                 it[objectKey] = media.objectKey
                 it[sizeBytes] = media.sizeBytes
+                it[durationMs] = media.duration
             }
         }
     }

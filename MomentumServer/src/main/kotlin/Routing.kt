@@ -33,6 +33,7 @@ fun Application.configureRouting(jwtService: JwtService) {
                 s3Routes(jwtService)
                 postActionsRoutes(jwtService)
                 accountRoutes(jwtService)
+                saluteSBERRoutes()
                 get("/hello") {
                     call.respond(Respond("Hello World!"))
                 }
