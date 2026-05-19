@@ -4,10 +4,11 @@ import com.example.Models.GetTranscriptionResponseDTO
 import com.example.Models.TranscriptionStatus
 import com.example.Models.TranscriptErrorDTO
 import com.example.Models.TranscriptRequestDTO
-import com.example.Models.TranscriptResponseDTO
 import com.example.database.Friendships
+import com.example.database.MediaModel
 import com.example.database.MediaTable
 import com.example.database.MediaType
+import com.example.database.PostModel
 import com.example.database.PostsTable
 import com.example.database.UploadingStatus
 import com.example.s3Client.S3Client
@@ -28,12 +29,19 @@ import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.serialization.SerializationException
 import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
 import java.util.UUID
 
 private val transcriptionStates = ConcurrentHashMap<UUID, TranscriptionState>()
+private val transcriptionJobs = ConcurrentHashMap<UUID, kotlinx.coroutines.Job>()
+private val transcriptionScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 private val transcriptLogger = LoggerFactory.getLogger("Transcript")
 
 fun Route.saluteSBERRoutes() {
@@ -119,8 +127,33 @@ private suspend fun ApplicationCall.respondTranscript(postIdRaw: String?) {
         return respond(HttpStatusCode.Conflict, TranscriptErrorDTO("Post media is not ready"))
     }
 
-    transcriptionStates[postId] = TranscriptionState.Processing
+    if (transcriptionJobs[postId]?.isActive == true) {
+        return respond(
+            HttpStatusCode.Accepted,
+            GetTranscriptionResponseDTO(TranscriptionStatus.TRANSCRIPTING, "")
+        )
+    }
 
+    val existingState = transcriptionStates[postId]
+    if (existingState is TranscriptionState.Done) {
+        return respond(HttpStatusCode.OK, GetTranscriptionResponseDTO(TranscriptionStatus.DONE, existingState.text))
+    }
+
+    transcriptionStates[postId] = TranscriptionState.Processing
+    val job = transcriptionScope.launch(start = CoroutineStart.LAZY) {
+        try {
+            runTranscription(postId, requesterId, post, media)
+        } finally {
+            transcriptionJobs.remove(postId)
+        }
+    }
+    transcriptionJobs[postId] = job
+    job.start()
+
+    respond(HttpStatusCode.Accepted, GetTranscriptionResponseDTO(TranscriptionStatus.TRANSCRIPTING, ""))
+}
+
+private suspend fun runTranscription(postId: UUID, requesterId: UUID, post: PostModel, media: MediaModel) {
     try {
         transcriptLogger.info(
             "Transcription started: postId={}, mediaId={}, requesterId={}, objectKey={}, mimeType={}, sizeBytes={}, durationMs={}",
@@ -135,6 +168,17 @@ private suspend fun ApplicationCall.respondTranscript(postIdRaw: String?) {
 
         val presignedUrl = S3Client.getPresignedObjectUrl(media.objectKey)
         val recognition = SaluteSberSpeechService.recognizeByPresignedUrl(presignedUrl, media)
+        if (recognition.text.isBlank()) {
+            transcriptLogger.warn(
+                "Transcription completed with empty text: postId={}, mediaId={}, results={}",
+                post.id,
+                media.id,
+                recognition.results.size
+            )
+            transcriptionStates[postId] = TranscriptionState.Error
+            return
+        }
+
         transcriptionStates[postId] = TranscriptionState.Done(recognition.text)
         transcriptLogger.info(
             "Transcription completed: postId={}, mediaId={}, textChars={}, results={}",
@@ -143,26 +187,12 @@ private suspend fun ApplicationCall.respondTranscript(postIdRaw: String?) {
             recognition.text.length,
             recognition.results.size
         )
-        respond(
-            HttpStatusCode.OK,
-            TranscriptResponseDTO(
-                postId = post.id.toString(),
-                mediaId = media.id.toString(),
-                text = recognition.text,
-                normalizedText = recognition.normalizedText,
-                results = recognition.results
-            )
-        )
     } catch (e: SaluteSberConfigurationException) {
         transcriptLogger.error(
             "Transcription configuration error: postId={}, mediaId={}, message={}",
             post.id,
             media.id,
             e.message
-        )
-        respond(
-            HttpStatusCode.ServiceUnavailable,
-            TranscriptErrorDTO("SaluteSpeech is not configured", e.message)
         )
         transcriptionStates[postId] = TranscriptionState.Error
     } catch (e: SaluteSberUnsupportedAudioException) {
@@ -172,10 +202,6 @@ private suspend fun ApplicationCall.respondTranscript(postIdRaw: String?) {
             media.id,
             media.mimeType,
             e.message
-        )
-        respond(
-            HttpStatusCode.UnsupportedMediaType,
-            TranscriptErrorDTO("Unsupported audio format", e.message)
         )
         transcriptionStates[postId] = TranscriptionState.Error
     } catch (e: SaluteSberAudioLimitException) {
@@ -187,10 +213,6 @@ private suspend fun ApplicationCall.respondTranscript(postIdRaw: String?) {
             media.duration,
             e.message
         )
-        respond(
-            HttpStatusCode(413, "Payload Too Large"),
-            TranscriptErrorDTO("Audio exceeds SaluteSpeech sync recognition limits", e.message)
-        )
         transcriptionStates[postId] = TranscriptionState.Error
     } catch (e: SaluteSberRemoteException) {
         transcriptLogger.warn(
@@ -201,13 +223,6 @@ private suspend fun ApplicationCall.respondTranscript(postIdRaw: String?) {
             e.message,
             e.details?.take(1000).orEmpty()
         )
-        respond(
-            HttpStatusCode.BadGateway,
-            TranscriptErrorDTO(
-                "SaluteSpeech request failed",
-                "upstreamStatus=${e.status.value}; ${e.details?.take(1000).orEmpty()}"
-            )
-        )
         transcriptionStates[postId] = TranscriptionState.Error
     } catch (e: SerializationException) {
         transcriptLogger.warn(
@@ -217,10 +232,6 @@ private suspend fun ApplicationCall.respondTranscript(postIdRaw: String?) {
             e.message,
             e
         )
-        respond(
-            HttpStatusCode.BadGateway,
-            TranscriptErrorDTO("Invalid SaluteSpeech response", e.message)
-        )
         transcriptionStates[postId] = TranscriptionState.Error
     } catch (e: Exception) {
         transcriptLogger.error(
@@ -228,10 +239,6 @@ private suspend fun ApplicationCall.respondTranscript(postIdRaw: String?) {
             post.id,
             media.id,
             e
-        )
-        respond(
-            HttpStatusCode.BadGateway,
-            TranscriptErrorDTO("Transcription request failed", e.message)
         )
         transcriptionStates[postId] = TranscriptionState.Error
     }

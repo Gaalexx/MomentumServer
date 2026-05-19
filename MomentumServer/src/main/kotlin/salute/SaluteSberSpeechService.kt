@@ -22,6 +22,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -99,7 +100,22 @@ object SaluteSberSpeechService {
         }
 
         val results = parseRecognitionResults(responseBody)
-        val text = results.firstNotNullOfOrNull { it.normalizedText ?: it.text } ?: ""
+        val text = results
+            .mapNotNull { (it.normalizedText ?: it.text)?.trim()?.takeIf(String::isNotEmpty) }
+            .joinToString(" ")
+        val normalizedText = results
+            .mapNotNull { it.normalizedText?.trim()?.takeIf(String::isNotEmpty) }
+            .joinToString(" ")
+            .takeIf(String::isNotEmpty)
+        if (text.isBlank()) {
+            logger.warn(
+                "SaluteSpeech recognition returned empty text: mediaId={}, requestId={}, status={}, body={}",
+                media.id,
+                requestId,
+                response.status.value,
+                responseBody.take(1000)
+            )
+        }
         logger.info(
             "SaluteSpeech recognition request completed: mediaId={}, requestId={}, status={}, textChars={}, results={}",
             media.id,
@@ -111,7 +127,7 @@ object SaluteSberSpeechService {
 
         return RecognitionResult(
             text = text,
-            normalizedText = results.firstOrNull()?.normalizedText,
+            normalizedText = normalizedText,
             results = results
         )
     }
@@ -205,13 +221,40 @@ object SaluteSberSpeechService {
     }
 
     private fun parseRecognitionResults(responseBody: String): List<SaluteSberRecognitionResultDTO> {
-        val recognitionResponse = json.decodeFromString<SaluteSberRecognitionResponse>(responseBody)
+        return when (val root = json.parseToJsonElement(responseBody)) {
+            is JsonObject -> parseRecognitionRoot(root)
+            is JsonArray -> root.flatMap(::parseRecognitionElement)
+            else -> emptyList()
+        }
+    }
 
-        return recognitionResponse.result.mapNotNull { result ->
-            when (result) {
-                is JsonPrimitive -> result.contentOrNull?.let { SaluteSberRecognitionResultDTO(text = it) }
-                is JsonObject -> json.decodeFromJsonElement<SaluteSberRecognitionResultDTO>(result)
-                else -> null
+    private fun parseRecognitionRoot(root: JsonObject): List<SaluteSberRecognitionResultDTO> {
+        return when (val result = root["result"]) {
+            is JsonArray -> result.flatMap(::parseRecognitionElement)
+            is JsonObject -> parseRecognitionElement(result)
+            is JsonPrimitive -> parseRecognitionElement(result)
+            else -> parseRecognitionElement(root)
+        }
+    }
+
+    private fun parseRecognitionElement(element: JsonElement): List<SaluteSberRecognitionResultDTO> {
+        return when (element) {
+            is JsonPrimitive -> element.contentOrNull
+                ?.let { listOf(SaluteSberRecognitionResultDTO(text = it)) }
+                ?: emptyList()
+
+            is JsonArray -> element.flatMap(::parseRecognitionElement)
+
+            is JsonObject -> {
+                val nestedResults = element["results"]
+                if (nestedResults is JsonArray) {
+                    nestedResults.flatMap(::parseRecognitionElement)
+                } else {
+                    listOfNotNull(
+                        json.decodeFromJsonElement<SaluteSberRecognitionResultDTO>(element)
+                            .takeIf { it.text != null || it.normalizedText != null }
+                    )
+                }
             }
         }
     }
@@ -317,9 +360,4 @@ private data class SaluteSberTokenResponse(
     val accessToken: String,
     @SerialName("expires_at")
     val expiresAt: Long
-)
-
-@Serializable
-private data class SaluteSberRecognitionResponse(
-    val result: List<JsonElement> = emptyList()
 )
