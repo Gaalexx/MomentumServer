@@ -30,9 +30,11 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
+import java.nio.file.Files
 import java.nio.charset.StandardCharsets
 import java.util.Base64
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 
 object SaluteSberSpeechService {
     private const val TOKEN_REFRESH_SKEW_MS = 60_000L
@@ -54,14 +56,17 @@ object SaluteSberSpeechService {
         validateMediaLimits(media, config)
 
         val audioBytes = downloadAudio(presignedUrl, config.maxAudioBytes)
-        val contentType = config.audioContentTypeOverride
+        val sourceContentType = config.audioContentTypeOverride
             ?: SberAudioContentTypes.resolve(media.mimeType, config.pcmSampleRate)
+        val preparedAudio = prepareAudioForRecognition(audioBytes, sourceContentType, media, config)
 
         logger.info(
-            "SaluteSpeech audio prepared: mediaId={}, mimeType={}, contentType={}, audioBytes={}",
+            "SaluteSpeech audio prepared: mediaId={}, mimeType={}, sourceContentType={}, contentType={}, audioBytes={}, sourceBytes={}",
             media.id,
             media.mimeType,
-            contentType,
+            sourceContentType,
+            preparedAudio.contentType,
+            preparedAudio.bytes.size,
             audioBytes.size
         )
 
@@ -72,15 +77,15 @@ object SaluteSberSpeechService {
             media.id,
             requestId,
             config.recognizeUrl,
-            contentType,
-            audioBytes.size
+            preparedAudio.contentType,
+            preparedAudio.bytes.size
         )
         val response = httpClient.post(config.recognizeUrl) {
             header(HttpHeaders.Authorization, "Bearer $accessToken")
-            header(HttpHeaders.ContentType, contentType)
+            header(HttpHeaders.ContentType, preparedAudio.contentType)
             header(HttpHeaders.Accept, ContentType.Application.Json.toString())
             header("X-Request-ID", requestId)
-            setBody(audioBytes)
+            setBody(preparedAudio.bytes)
         }
 
         val responseBody = response.bodyAsText()
@@ -209,6 +214,82 @@ object SaluteSberSpeechService {
         return bytes
     }
 
+    private fun prepareAudioForRecognition(
+        audioBytes: ByteArray,
+        contentType: String,
+        media: MediaModel,
+        config: SaluteSberConfig
+    ): PreparedAudio {
+        if (!contentType.lowercase().startsWith("audio/ogg") || !contentType.lowercase().contains("codecs=opus")) {
+            return PreparedAudio(audioBytes, contentType)
+        }
+
+        val convertedBytes = transcodeOpusToPcmWav(audioBytes, media)
+        if (convertedBytes.size > config.maxAudioBytes) {
+            throw SaluteSberAudioLimitException(
+                "Transcoded audio file is larger than ${config.maxAudioBytes} bytes"
+            )
+        }
+
+        return PreparedAudio(convertedBytes, "audio/x-pcm;bit=16;rate=16000")
+    }
+
+    private fun transcodeOpusToPcmWav(audioBytes: ByteArray, media: MediaModel): ByteArray {
+        val input = Files.createTempFile("momentum-salute-input-", ".ogg")
+        val output = Files.createTempFile("momentum-salute-output-", ".wav")
+        val log = Files.createTempFile("momentum-salute-ffmpeg-", ".log")
+
+        try {
+            Files.write(input, audioBytes)
+            val process = ProcessBuilder(
+                "ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-i",
+                input.toString(),
+                "-ac",
+                "1",
+                "-ar",
+                "16000",
+                "-c:a",
+                "pcm_s16le",
+                output.toString()
+            )
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                .redirectError(log.toFile())
+                .start()
+
+            val completed = process.waitFor(30, TimeUnit.SECONDS)
+            val stderr = Files.readString(log).trim()
+            if (!completed) {
+                process.destroyForcibly()
+                throw SaluteSberAudioConversionException("ffmpeg timed out while converting media ${media.id}")
+            }
+
+            if (process.exitValue() != 0) {
+                throw SaluteSberAudioConversionException(
+                    "ffmpeg failed while converting media ${media.id}: ${stderr.take(1000)}"
+                )
+            }
+
+            val convertedBytes = Files.readAllBytes(output)
+            logger.info(
+                "Audio transcoded for SaluteSpeech: mediaId={}, sourceBytes={}, convertedBytes={}, contentType={}",
+                media.id,
+                audioBytes.size,
+                convertedBytes.size,
+                "audio/x-pcm;bit=16;rate=16000"
+            )
+            return convertedBytes
+        } finally {
+            Files.deleteIfExists(input)
+            Files.deleteIfExists(output)
+            Files.deleteIfExists(log)
+        }
+    }
+
     private fun validateMediaLimits(media: MediaModel, config: SaluteSberConfig) {
         if (media.sizeBytes > config.maxAudioBytes) {
             throw SaluteSberAudioLimitException("Audio file is larger than ${config.maxAudioBytes} bytes")
@@ -264,6 +345,11 @@ data class RecognitionResult(
     val text: String,
     val normalizedText: String?,
     val results: List<SaluteSberRecognitionResultDTO>
+)
+
+private data class PreparedAudio(
+    val bytes: ByteArray,
+    val contentType: String
 )
 
 data class SaluteSberConfig(
@@ -342,6 +428,8 @@ class SaluteSberConfigurationException(message: String) : RuntimeException(messa
 class SaluteSberUnsupportedAudioException(message: String) : RuntimeException(message)
 
 class SaluteSberAudioLimitException(message: String) : RuntimeException(message)
+
+class SaluteSberAudioConversionException(message: String) : RuntimeException(message)
 
 class SaluteSberRemoteException(
     val status: HttpStatusCode,

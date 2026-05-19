@@ -23,6 +23,10 @@ FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
 ADD https://gu-st.ru/content/Other/doc/russiantrustedca.pem /tmp/russiantrustedca.pem
 
 RUN awk 'BEGIN { n = 0 } /-----BEGIN CERTIFICATE-----/ { n++ } n > 0 { print > ("/tmp/russiantrustedca-" n ".crt") }' /tmp/russiantrustedca.pem \
