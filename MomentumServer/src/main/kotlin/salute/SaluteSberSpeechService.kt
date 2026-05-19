@@ -28,6 +28,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.Json
+import org.slf4j.LoggerFactory
 import java.nio.charset.StandardCharsets
 import java.util.Base64
 import java.util.UUID
@@ -35,6 +36,7 @@ import java.util.UUID
 object SaluteSberSpeechService {
     private const val TOKEN_REFRESH_SKEW_MS = 60_000L
 
+    private val logger = LoggerFactory.getLogger(SaluteSberSpeechService::class.java)
     private val json = Json { ignoreUnknownKeys = true }
     private val httpClient = HttpClient(CIO) {
         install(ContentNegotiation) {
@@ -54,8 +56,24 @@ object SaluteSberSpeechService {
         val contentType = config.audioContentTypeOverride
             ?: SberAudioContentTypes.resolve(media.mimeType, config.pcmSampleRate)
 
+        logger.info(
+            "SaluteSpeech audio prepared: mediaId={}, mimeType={}, contentType={}, audioBytes={}",
+            media.id,
+            media.mimeType,
+            contentType,
+            audioBytes.size
+        )
+
         val accessToken = getAccessToken(config)
         val requestId = UUID.randomUUID().toString()
+        logger.info(
+            "SaluteSpeech recognition request started: mediaId={}, requestId={}, recognizeUrl={}, contentType={}, audioBytes={}",
+            media.id,
+            requestId,
+            config.recognizeUrl,
+            contentType,
+            audioBytes.size
+        )
         val response = httpClient.post(config.recognizeUrl) {
             header(HttpHeaders.Authorization, "Bearer $accessToken")
             header(HttpHeaders.ContentType, contentType)
@@ -66,6 +84,13 @@ object SaluteSberSpeechService {
 
         val responseBody = response.bodyAsText()
         if (!response.status.isSuccess()) {
+            logger.warn(
+                "SaluteSpeech recognition request failed: mediaId={}, requestId={}, status={}, body={}",
+                media.id,
+                requestId,
+                response.status.value,
+                responseBody.take(1000)
+            )
             throw SaluteSberRemoteException(
                 status = response.status,
                 message = "SaluteSpeech recognition failed",
@@ -75,6 +100,14 @@ object SaluteSberSpeechService {
 
         val results = parseRecognitionResults(responseBody)
         val text = results.firstNotNullOfOrNull { it.normalizedText ?: it.text } ?: ""
+        logger.info(
+            "SaluteSpeech recognition request completed: mediaId={}, requestId={}, status={}, textChars={}, results={}",
+            media.id,
+            requestId,
+            response.status.value,
+            text.length,
+            results.size
+        )
 
         return RecognitionResult(
             text = text,
@@ -117,6 +150,11 @@ object SaluteSberSpeechService {
 
         val responseBody = response.bodyAsText()
         if (!response.status.isSuccess()) {
+            logger.warn(
+                "SaluteSpeech token request failed: status={}, body={}",
+                response.status.value,
+                responseBody.take(1000)
+            )
             throw SaluteSberRemoteException(
                 status = response.status,
                 message = "SaluteSpeech token request failed",
@@ -134,10 +172,16 @@ object SaluteSberSpeechService {
     private suspend fun downloadAudio(presignedUrl: String, maxAudioBytes: Long): ByteArray {
         val response = httpClient.get(presignedUrl)
         if (!response.status.isSuccess()) {
+            val responseBody = response.bodyAsText()
+            logger.warn(
+                "S3 presigned audio download failed: status={}, body={}",
+                response.status.value,
+                responseBody.take(1000)
+            )
             throw SaluteSberRemoteException(
                 status = response.status,
                 message = "Failed to download audio from S3 presigned URL",
-                details = response.bodyAsText()
+                details = responseBody
             )
         }
 

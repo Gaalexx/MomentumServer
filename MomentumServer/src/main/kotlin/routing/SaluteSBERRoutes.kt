@@ -29,10 +29,12 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 import kotlinx.serialization.SerializationException
+import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
 import java.util.UUID
 
 private val transcriptionStates = ConcurrentHashMap<UUID, TranscriptionState>()
+private val transcriptLogger = LoggerFactory.getLogger("Transcript")
 
 fun Route.saluteSBERRoutes() {
     authenticate("jwt") {
@@ -120,9 +122,27 @@ private suspend fun ApplicationCall.respondTranscript(postIdRaw: String?) {
     transcriptionStates[postId] = TranscriptionState.Processing
 
     try {
+        transcriptLogger.info(
+            "Transcription started: postId={}, mediaId={}, requesterId={}, objectKey={}, mimeType={}, sizeBytes={}, durationMs={}",
+            post.id,
+            media.id,
+            requesterId,
+            media.objectKey,
+            media.mimeType,
+            media.sizeBytes,
+            media.duration
+        )
+
         val presignedUrl = S3Client.getPresignedObjectUrl(media.objectKey)
         val recognition = SaluteSberSpeechService.recognizeByPresignedUrl(presignedUrl, media)
         transcriptionStates[postId] = TranscriptionState.Done(recognition.text)
+        transcriptLogger.info(
+            "Transcription completed: postId={}, mediaId={}, textChars={}, results={}",
+            post.id,
+            media.id,
+            recognition.text.length,
+            recognition.results.size
+        )
         respond(
             HttpStatusCode.OK,
             TranscriptResponseDTO(
@@ -134,24 +154,53 @@ private suspend fun ApplicationCall.respondTranscript(postIdRaw: String?) {
             )
         )
     } catch (e: SaluteSberConfigurationException) {
+        transcriptLogger.error(
+            "Transcription configuration error: postId={}, mediaId={}, message={}",
+            post.id,
+            media.id,
+            e.message
+        )
         respond(
             HttpStatusCode.ServiceUnavailable,
             TranscriptErrorDTO("SaluteSpeech is not configured", e.message)
         )
         transcriptionStates[postId] = TranscriptionState.Error
     } catch (e: SaluteSberUnsupportedAudioException) {
+        transcriptLogger.warn(
+            "Transcription unsupported audio: postId={}, mediaId={}, mimeType={}, message={}",
+            post.id,
+            media.id,
+            media.mimeType,
+            e.message
+        )
         respond(
             HttpStatusCode.UnsupportedMediaType,
             TranscriptErrorDTO("Unsupported audio format", e.message)
         )
         transcriptionStates[postId] = TranscriptionState.Error
     } catch (e: SaluteSberAudioLimitException) {
+        transcriptLogger.warn(
+            "Transcription audio limit exceeded: postId={}, mediaId={}, sizeBytes={}, durationMs={}, message={}",
+            post.id,
+            media.id,
+            media.sizeBytes,
+            media.duration,
+            e.message
+        )
         respond(
             HttpStatusCode(413, "Payload Too Large"),
             TranscriptErrorDTO("Audio exceeds SaluteSpeech sync recognition limits", e.message)
         )
         transcriptionStates[postId] = TranscriptionState.Error
     } catch (e: SaluteSberRemoteException) {
+        transcriptLogger.warn(
+            "Transcription upstream error: postId={}, mediaId={}, upstreamStatus={}, message={}, details={}",
+            post.id,
+            media.id,
+            e.status.value,
+            e.message,
+            e.details?.take(1000).orEmpty()
+        )
         respond(
             HttpStatusCode.BadGateway,
             TranscriptErrorDTO(
@@ -161,12 +210,25 @@ private suspend fun ApplicationCall.respondTranscript(postIdRaw: String?) {
         )
         transcriptionStates[postId] = TranscriptionState.Error
     } catch (e: SerializationException) {
+        transcriptLogger.warn(
+            "Transcription response parse error: postId={}, mediaId={}, message={}",
+            post.id,
+            media.id,
+            e.message,
+            e
+        )
         respond(
             HttpStatusCode.BadGateway,
             TranscriptErrorDTO("Invalid SaluteSpeech response", e.message)
         )
         transcriptionStates[postId] = TranscriptionState.Error
     } catch (e: Exception) {
+        transcriptLogger.error(
+            "Transcription unexpected error: postId={}, mediaId={}",
+            post.id,
+            media.id,
+            e
+        )
         respond(
             HttpStatusCode.BadGateway,
             TranscriptErrorDTO("Transcription request failed", e.message)
