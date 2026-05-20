@@ -53,21 +53,25 @@ object SaluteSberSpeechService {
 
     suspend fun recognizeByPresignedUrl(presignedUrl: String, media: MediaModel): RecognitionResult {
         val config = SaluteSberConfig.load()
-        validateMediaLimits(media, config)
-
-        val audioBytes = downloadAudio(presignedUrl, config.maxAudioBytes)
         val sourceContentType = config.audioContentTypeOverride
             ?: SberAudioContentTypes.resolve(media.mimeType, config.pcmSampleRate)
-        val preparedAudio = prepareAudioForRecognition(audioBytes, sourceContentType, media, config)
+        val requiresTranscoding = SberAudioContentTypes.requiresPcmTranscoding(sourceContentType)
+        validateMediaLimits(media, config, requiresTranscoding)
+
+        val sourceBytes = downloadMedia(
+            presignedUrl = presignedUrl,
+            maxBytes = if (requiresTranscoding) config.maxSourceMediaBytes else config.maxAudioBytes
+        )
+        val preparedAudio = prepareAudioForRecognition(sourceBytes, sourceContentType, media, config)
 
         logger.info(
-            "SaluteSpeech audio prepared: mediaId={}, mimeType={}, sourceContentType={}, contentType={}, audioBytes={}, sourceBytes={}",
+            "SaluteSpeech media prepared: mediaId={}, mimeType={}, sourceContentType={}, contentType={}, audioBytes={}, sourceBytes={}",
             media.id,
             media.mimeType,
             sourceContentType,
             preparedAudio.contentType,
             preparedAudio.bytes.size,
-            audioBytes.size
+            sourceBytes.size
         )
 
         val accessToken = getAccessToken(config)
@@ -190,57 +194,57 @@ object SaluteSberSpeechService {
         )
     }
 
-    private suspend fun downloadAudio(presignedUrl: String, maxAudioBytes: Long): ByteArray {
+    private suspend fun downloadMedia(presignedUrl: String, maxBytes: Long): ByteArray {
         val response = httpClient.get(presignedUrl)
         if (!response.status.isSuccess()) {
             val responseBody = response.bodyAsText()
             logger.warn(
-                "S3 presigned audio download failed: status={}, body={}",
+                "S3 presigned media download failed: status={}, body={}",
                 response.status.value,
                 responseBody.take(1000)
             )
             throw SaluteSberRemoteException(
                 status = response.status,
-                message = "Failed to download audio from S3 presigned URL",
+                message = "Failed to download media from S3 presigned URL",
                 details = responseBody
             )
         }
 
         val bytes = response.body<ByteArray>()
-        if (bytes.size > maxAudioBytes) {
-            throw SaluteSberAudioLimitException("Audio file is larger than $maxAudioBytes bytes")
+        if (bytes.size > maxBytes) {
+            throw SaluteSberAudioLimitException("Media file is larger than $maxBytes bytes")
         }
 
         return bytes
     }
 
     private fun prepareAudioForRecognition(
-        audioBytes: ByteArray,
+        sourceBytes: ByteArray,
         contentType: String,
         media: MediaModel,
         config: SaluteSberConfig
     ): PreparedAudio {
-        if (!contentType.lowercase().startsWith("audio/ogg") || !contentType.lowercase().contains("codecs=opus")) {
-            return PreparedAudio(audioBytes, contentType)
+        if (!SberAudioContentTypes.requiresPcmTranscoding(contentType)) {
+            return PreparedAudio(sourceBytes, contentType)
         }
 
-        val convertedBytes = transcodeOpusToPcmWav(audioBytes, media)
+        val convertedBytes = transcodeToPcmWav(sourceBytes, media, config)
         if (convertedBytes.size > config.maxAudioBytes) {
             throw SaluteSberAudioLimitException(
                 "Transcoded audio file is larger than ${config.maxAudioBytes} bytes"
             )
         }
 
-        return PreparedAudio(convertedBytes, "audio/x-pcm;bit=16;rate=16000")
+        return PreparedAudio(convertedBytes, "audio/x-pcm;bit=16;rate=${config.pcmSampleRate}")
     }
 
-    private fun transcodeOpusToPcmWav(audioBytes: ByteArray, media: MediaModel): ByteArray {
-        val input = Files.createTempFile("momentum-salute-input-", ".ogg")
+    private fun transcodeToPcmWav(sourceBytes: ByteArray, media: MediaModel, config: SaluteSberConfig): ByteArray {
+        val input = Files.createTempFile("momentum-salute-input-", ".media")
         val output = Files.createTempFile("momentum-salute-output-", ".wav")
         val log = Files.createTempFile("momentum-salute-ffmpeg-", ".log")
 
         try {
-            Files.write(input, audioBytes)
+            Files.write(input, sourceBytes)
             val process = ProcessBuilder(
                 "ffmpeg",
                 "-hide_banner",
@@ -249,10 +253,13 @@ object SaluteSberSpeechService {
                 "-y",
                 "-i",
                 input.toString(),
+                "-map",
+                "0:a:0",
+                "-vn",
                 "-ac",
                 "1",
                 "-ar",
-                "16000",
+                config.pcmSampleRate.toString(),
                 "-c:a",
                 "pcm_s16le",
                 output.toString()
@@ -261,11 +268,13 @@ object SaluteSberSpeechService {
                 .redirectError(log.toFile())
                 .start()
 
-            val completed = process.waitFor(30, TimeUnit.SECONDS)
+            val completed = process.waitFor(config.mediaConversionTimeoutSeconds, TimeUnit.SECONDS)
             val stderr = Files.readString(log).trim()
             if (!completed) {
                 process.destroyForcibly()
-                throw SaluteSberAudioConversionException("ffmpeg timed out while converting media ${media.id}")
+                throw SaluteSberAudioConversionException(
+                    "ffmpeg timed out after ${config.mediaConversionTimeoutSeconds} seconds while converting media ${media.id}"
+                )
             }
 
             if (process.exitValue() != 0) {
@@ -278,9 +287,9 @@ object SaluteSberSpeechService {
             logger.info(
                 "Audio transcoded for SaluteSpeech: mediaId={}, sourceBytes={}, convertedBytes={}, contentType={}",
                 media.id,
-                audioBytes.size,
+                sourceBytes.size,
                 convertedBytes.size,
-                "audio/x-pcm;bit=16;rate=16000"
+                "audio/x-pcm;bit=16;rate=${config.pcmSampleRate}"
             )
             return convertedBytes
         } finally {
@@ -290,9 +299,10 @@ object SaluteSberSpeechService {
         }
     }
 
-    private fun validateMediaLimits(media: MediaModel, config: SaluteSberConfig) {
-        if (media.sizeBytes > config.maxAudioBytes) {
-            throw SaluteSberAudioLimitException("Audio file is larger than ${config.maxAudioBytes} bytes")
+    private fun validateMediaLimits(media: MediaModel, config: SaluteSberConfig, requiresTranscoding: Boolean) {
+        val maxSourceBytes = if (requiresTranscoding) config.maxSourceMediaBytes else config.maxAudioBytes
+        if (media.sizeBytes > maxSourceBytes) {
+            throw SaluteSberAudioLimitException("Media file is larger than $maxSourceBytes bytes")
         }
 
         val duration = media.duration
@@ -360,7 +370,9 @@ data class SaluteSberConfig(
     val audioContentTypeOverride: String?,
     val pcmSampleRate: Int,
     val maxAudioBytes: Long,
-    val maxAudioDurationMs: Long
+    val maxAudioDurationMs: Long,
+    val maxSourceMediaBytes: Long,
+    val mediaConversionTimeoutSeconds: Long
 ) {
     companion object {
         fun load(): SaluteSberConfig {
@@ -374,7 +386,11 @@ data class SaluteSberConfig(
                 audioContentTypeOverride = env("SALUTE_SBER_AUDIO_CONTENT_TYPE"),
                 pcmSampleRate = env("SALUTE_SBER_PCM_SAMPLE_RATE")?.toIntOrNull() ?: 16_000,
                 maxAudioBytes = env("SALUTE_SBER_MAX_AUDIO_BYTES")?.toLongOrNull() ?: 2L * 1024L * 1024L,
-                maxAudioDurationMs = env("SALUTE_SBER_MAX_AUDIO_DURATION_MS")?.toLongOrNull() ?: 60_000L
+                maxAudioDurationMs = env("SALUTE_SBER_MAX_AUDIO_DURATION_MS")?.toLongOrNull() ?: 60_000L,
+                maxSourceMediaBytes = env("SALUTE_SBER_MAX_SOURCE_MEDIA_BYTES")?.toLongOrNull()
+                    ?: 50L * 1024L * 1024L,
+                mediaConversionTimeoutSeconds = env("SALUTE_SBER_MEDIA_CONVERSION_TIMEOUT_SECONDS")?.toLongOrNull()
+                    ?: 60L
             )
         }
 
@@ -402,24 +418,74 @@ data class SaluteSberConfig(
 }
 
 object SberAudioContentTypes {
+    private val transcodableAliases = setOf(
+        "mp4",
+        "m4a",
+        "mov",
+        "webm",
+        "mkv",
+        "3gp",
+        "3gpp"
+    )
+
+    private val transcodableApplicationTypes = setOf(
+        "application/mp4",
+        "application/octet-stream"
+    )
+
     fun resolve(mimeType: String, pcmSampleRate: Int): String {
         val normalizedMime = mimeType.lowercase().trim()
+        val baseMime = normalizedMime.substringBefore(";").trim()
 
         return when {
-            normalizedMime == "audio/mpeg" || normalizedMime == "audio/mp3" -> "audio/mpeg"
-            normalizedMime == "audio/flac" || normalizedMime == "audio/x-flac" -> "audio/flac"
-            normalizedMime == "audio/ogg" || normalizedMime.contains("codecs=opus") -> "audio/ogg;codecs=opus"
-            normalizedMime.startsWith("audio/x-pcm") -> mimeType
-            normalizedMime == "audio/pcm" -> "audio/x-pcm;bit=16;rate=$pcmSampleRate"
-            normalizedMime == "audio/wav" || normalizedMime == "audio/wave" || normalizedMime == "audio/x-wav" ->
+            baseMime == "audio/mpeg" || baseMime == "audio/mp3" -> "audio/mpeg"
+            baseMime == "audio/flac" || baseMime == "audio/x-flac" -> "audio/flac"
+            baseMime == "audio/ogg" || normalizedMime.contains("codecs=opus") -> "audio/ogg;codecs=opus"
+            baseMime == "audio/x-pcm" -> mimeType
+            baseMime == "audio/pcm" -> "audio/x-pcm;bit=16;rate=$pcmSampleRate"
+            baseMime == "audio/wav" || baseMime == "audio/wave" || baseMime == "audio/x-wav" ->
                 "audio/x-pcm;bit=16;rate=$pcmSampleRate"
-            normalizedMime.startsWith("audio/pcma") ->
+            baseMime.startsWith("audio/pcma") ->
                 if (normalizedMime.contains("rate=")) mimeType else "audio/pcma;rate=$pcmSampleRate"
-            normalizedMime.startsWith("audio/pcmu") ->
+            baseMime.startsWith("audio/pcmu") ->
                 if (normalizedMime.contains("rate=")) mimeType else "audio/pcmu;rate=$pcmSampleRate"
-            normalizedMime.startsWith("audio/g729") -> mimeType
+            baseMime.startsWith("audio/g729") -> mimeType
+            isFfmpegConvertible(baseMime) -> mimeType
             else -> throw SaluteSberUnsupportedAudioException("Unsupported audio mime type for SaluteSpeech: $mimeType")
         }
+    }
+
+    fun requiresPcmTranscoding(contentType: String): Boolean {
+        val normalizedContentType = contentType.lowercase().trim()
+        val baseContentType = normalizedContentType.substringBefore(";").trim()
+        return when {
+            baseContentType == "audio/ogg" && normalizedContentType.contains("codecs=opus") -> true
+            isFfmpegConvertible(baseContentType) -> true
+            else -> false
+        }
+    }
+
+    private fun isFfmpegConvertible(contentType: String): Boolean {
+        return contentType.startsWith("video/") ||
+            contentType in transcodableApplicationTypes ||
+            contentType in transcodableAliases ||
+            (
+                contentType.startsWith("audio/") &&
+                    contentType !in setOf(
+                        "audio/mpeg",
+                        "audio/mp3",
+                        "audio/flac",
+                        "audio/x-flac",
+                        "audio/x-pcm",
+                        "audio/pcm",
+                        "audio/wav",
+                        "audio/wave",
+                        "audio/x-wav"
+                    ) &&
+                    !contentType.startsWith("audio/pcma") &&
+                    !contentType.startsWith("audio/pcmu") &&
+                    !contentType.startsWith("audio/g729")
+                )
     }
 }
 

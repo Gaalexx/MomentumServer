@@ -13,6 +13,7 @@ import com.example.database.PostsTable
 import com.example.database.UploadingStatus
 import com.example.s3Client.S3Client
 import com.example.salute.SaluteSberAudioLimitException
+import com.example.salute.SaluteSberAudioConversionException
 import com.example.salute.SaluteSberConfigurationException
 import com.example.salute.SaluteSberRemoteException
 import com.example.salute.SaluteSberSpeechService
@@ -119,8 +120,8 @@ private suspend fun ApplicationCall.respondTranscript(postIdRaw: String?) {
     val media = MediaTable.getMediaById(post.mediaId)
         ?: return respond(HttpStatusCode.NotFound, TranscriptErrorDTO("Post media not found"))
 
-    if (media.mediaType != MediaType.AUDIO) {
-        return respond(HttpStatusCode.UnsupportedMediaType, TranscriptErrorDTO("Post media is not audio"))
+    if (!media.canBeTranscribed()) {
+        return respond(HttpStatusCode.UnsupportedMediaType, TranscriptErrorDTO("Post media is not audio or video"))
     }
 
     if (media.status != UploadingStatus.READY) {
@@ -214,6 +215,15 @@ private suspend fun runTranscription(postId: UUID, requesterId: UUID, post: Post
             e.message
         )
         transcriptionStates[postId] = TranscriptionState.Error
+    } catch (e: SaluteSberAudioConversionException) {
+        transcriptLogger.warn(
+            "Transcription media conversion failed: postId={}, mediaId={}, mimeType={}, message={}",
+            post.id,
+            media.id,
+            media.mimeType,
+            e.message
+        )
+        transcriptionStates[postId] = TranscriptionState.Error
     } catch (e: SaluteSberRemoteException) {
         transcriptLogger.warn(
             "Transcription upstream error: postId={}, mediaId={}, upstreamStatus={}, message={}, details={}",
@@ -248,4 +258,13 @@ private sealed class TranscriptionState {
     data object Processing : TranscriptionState()
     data class Done(val text: String) : TranscriptionState()
     data object Error : TranscriptionState()
+}
+
+private fun MediaModel.canBeTranscribed(): Boolean {
+    if (mediaType == MediaType.AUDIO || mediaType == MediaType.VIDEO) {
+        return true
+    }
+
+    val normalizedMime = mimeType.lowercase().trim().substringBefore(";").trim()
+    return normalizedMime.startsWith("audio/") || normalizedMime.startsWith("video/")
 }
