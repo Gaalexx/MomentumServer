@@ -23,6 +23,22 @@ FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+ADD https://gu-st.ru/content/Other/doc/russiantrustedca.pem /tmp/russiantrustedca.pem
+
+RUN awk 'BEGIN { n = 0 } /-----BEGIN CERTIFICATE-----/ { n++ } n > 0 { print > ("/tmp/russiantrustedca-" n ".crt") }' /tmp/russiantrustedca.pem \
+    && for cert in /tmp/russiantrustedca-*.crt; do \
+        keytool -importcert -noprompt -trustcacerts \
+            -alias "russiantrustedca-$(basename "$cert" .crt)" \
+            -file "$cert" \
+            -keystore "$JAVA_HOME/lib/security/cacerts" \
+            -storepass changeit; \
+    done \
+    && rm /tmp/russiantrustedca.pem /tmp/russiantrustedca-*.crt
+
 COPY --from=build /app/build/libs/*.jar /app/app.jar
 
 EXPOSE 8080

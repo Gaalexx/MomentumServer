@@ -38,3 +38,6 @@ out/
 ### firebase ###
 
 firebase-service-account.json
+
+### local secrets ###
+.env

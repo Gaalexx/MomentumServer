@@ -428,6 +428,18 @@ object Friendships : Table("friendships") {
         return (friends1 + friends2).sortedByDescending { it.friendsSince }
     }
 
+    fun areFriends(userId: UUID, friendId: UUID): Boolean {
+        if (userId == friendId) return true
+
+        val (id1, id2) = if (userId < friendId) userId to friendId else friendId to userId
+        return transaction {
+            Friendships
+                .selectAll()
+                .where { (Friendships.userId1 eq id1) and (Friendships.userId2 eq id2) }
+                .any()
+        }
+    }
+
 
     fun deleteFriendshipAndUpdateRequest(userUUID: UUID, friendUUID: UUID): String {
         val (id1, id2) = if (userUUID < friendUUID) userUUID to friendUUID else friendUUID to userUUID
