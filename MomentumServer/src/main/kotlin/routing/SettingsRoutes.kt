@@ -164,11 +164,11 @@ fun Route.settingsRoutes() {
             )
         }
 
-        post("/change-recommend-to-contacts") {
+        post("/change-friend-request-enabled") {
             val userId = call.safeUserId() ?: return@post
 
             val body = try {
-                call.receive<ChangeRecommendToContactsDTO>()
+                call.receive<ChangeFriendRequestEnabledDTO>()
             } catch (e: Exception) {
                 return@post call.respond(
                     HttpStatusCode.BadRequest,
@@ -177,7 +177,7 @@ fun Route.settingsRoutes() {
             }
 
             val updated = try {
-                SettingsTable.changeRecommendToContacts(userId, body.recommendToContacts)
+                SettingsTable.changeFriendRequestEnabled(userId, body.friendRequestEnabled)
             } catch (e: Exception) {
                 return@post call.respond(
                     HttpStatusCode.InternalServerError,
@@ -204,11 +204,11 @@ fun Route.settingsRoutes() {
             )
         }
 
-        post("/change-allow-add-from-anyone") {
+        post("/change-default-theme-enabled") {
             val userId = call.safeUserId() ?: return@post
 
             val body = try {
-                call.receive<ChangeAllowAddFromAnyoneDTO>()
+                call.receive<ChangeDefaultThemeEnabledDTO>()
             } catch (e: Exception) {
                 return@post call.respond(
                     HttpStatusCode.BadRequest,
@@ -217,7 +217,7 @@ fun Route.settingsRoutes() {
             }
 
             val updated = try {
-                SettingsTable.changeAllowAddFromAnyone(userId, body.allowAddFromAnyone)
+                SettingsTable.changeDefaultThemeEnabled(userId, body.defaultThemeEnabled)
             } catch (e: Exception) {
                 return@post call.respond(
                     HttpStatusCode.InternalServerError,

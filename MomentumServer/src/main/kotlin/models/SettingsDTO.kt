@@ -27,13 +27,13 @@ data class ChangeReactionsEnabledDTO(
 )
 
 @Serializable
-data class ChangeRecommendToContactsDTO(
-    val recommendToContacts: Boolean
+data class ChangeFriendRequestEnabledDTO(
+    val friendRequestEnabled: Boolean
 )
 
 @Serializable
-data class ChangeAllowAddFromAnyoneDTO(
-    val allowAddFromAnyone: Boolean
+data class ChangeDefaultThemeEnabledDTO(
+    val defaultThemeEnabled: Boolean
 )
 
 @Serializable
