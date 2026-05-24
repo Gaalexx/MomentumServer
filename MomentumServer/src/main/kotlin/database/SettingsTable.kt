@@ -1,6 +1,7 @@
 package com.example.database
 
 import com.example.Models.ServerSettingsStateDTO
+import com.example.Models.SettingsBooleanDTO
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.deleteWhere
@@ -8,6 +9,7 @@ import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
+import org.jetbrains.exposed.sql.get
 import java.util.*
 
 
@@ -25,31 +27,72 @@ object SettingsTable : Table(name = "settings") {
     fun changeInAppNotifications(curUserId: UUID, newValue: Boolean): Boolean {
         return transaction {
             update({ userId eq curUserId }) {
-                it[inAppNotifications] = newValue
+                if (newValue){
+                    it[inAppNotifications] = true
+                    it[publicationsEnabled] = true
+                    it[reactionsEnabled] = true
+                    it[friendRequestEnabled] = true
+                }
+                else{
+                    it[inAppNotifications] = false
+                    it[publicationsEnabled] = false
+                    it[reactionsEnabled] = false
+                    it[friendRequestEnabled] = false
+                }
             }
         } > 0
     }
 
-    fun changePublicationsEnabled(curUserId: UUID, newValue: Boolean): Boolean {
+    fun changePublicationsEnabled(curUserId: UUID, newValue: Boolean, settings: ServerSettingsStateDTO): Boolean {
         return transaction {
+
             update({ userId eq curUserId }) {
-                it[publicationsEnabled] = newValue
+                if (newValue){
+                    it[inAppNotifications] = true
+                    it[publicationsEnabled] = true
+                }
+                else{
+                    it[publicationsEnabled] = false
+                    if (!settings.reactionsEnabled && !settings.friendRequestEnabled){
+                        it[inAppNotifications] = false
+                    }
+                }
             }
         } > 0
     }
 
-    fun changeReactionsEnabled(curUserId: UUID, newValue: Boolean): Boolean {
+    fun changeReactionsEnabled(curUserId: UUID, newValue: Boolean, settings: ServerSettingsStateDTO): Boolean {
         return transaction {
+
             update({ userId eq curUserId }) {
-                it[reactionsEnabled] = newValue
+                if (newValue){
+                    it[inAppNotifications] = true
+                    it[reactionsEnabled] = true
+                }
+                else{
+                    it[reactionsEnabled] = false
+                    if (!settings.publicationsEnabled && !settings.friendRequestEnabled){
+                        it[inAppNotifications] = false
+                    }
+                }
             }
         } > 0
     }
 
-    fun changeFriendRequestEnabled(curUserId: UUID, newValue: Boolean): Boolean {
+    fun changeFriendRequestEnabled(curUserId: UUID, newValue: Boolean, settings: ServerSettingsStateDTO): Boolean {
         return transaction {
+
             update({ userId eq curUserId }) {
-                it[friendRequestEnabled] = newValue
+                if (newValue){
+                    it[inAppNotifications] = true
+                    it[friendRequestEnabled] = true
+                }
+                else{
+                    it[friendRequestEnabled] = false
+                    if (!settings.publicationsEnabled && !settings.reactionsEnabled){
+                        it[inAppNotifications] = false
+                    }
+                }
             }
         } > 0
     }
