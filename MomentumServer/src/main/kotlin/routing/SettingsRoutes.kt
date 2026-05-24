@@ -96,8 +96,14 @@ fun Route.settingsRoutes() {
                 )
             }
 
+            val curState = SettingsTable.getServerSettingsInfo(userId)
+                ?: return@post call.respond(
+                    HttpStatusCode.InternalServerError,
+                    SettingsActionDTO(false, "Failed to load settings")
+                )
+
             val updated = try {
-                SettingsTable.changePublicationsEnabled(userId, body.publicationsEnabled)
+                SettingsTable.changePublicationsEnabled(userId, body.publicationsEnabled, curState)
             } catch (e: Exception) {
                 return@post call.respond(
                     HttpStatusCode.InternalServerError,
@@ -136,8 +142,14 @@ fun Route.settingsRoutes() {
                 )
             }
 
+            val curState = SettingsTable.getServerSettingsInfo(userId)
+                ?: return@post call.respond(
+                    HttpStatusCode.InternalServerError,
+                    SettingsActionDTO(false, "Failed to load settings")
+                )
+
             val updated = try {
-                SettingsTable.changeReactionsEnabled(userId, body.reactionsEnabled)
+                SettingsTable.changeReactionsEnabled(userId, body.reactionsEnabled, curState)
             } catch (e: Exception) {
                 return@post call.respond(
                     HttpStatusCode.InternalServerError,
@@ -176,8 +188,14 @@ fun Route.settingsRoutes() {
                 )
             }
 
+            val curState = SettingsTable.getServerSettingsInfo(userId)
+                ?: return@post call.respond(
+                    HttpStatusCode.InternalServerError,
+                    SettingsActionDTO(false, "Failed to load settings")
+                )
+
             val updated = try {
-                SettingsTable.changeFriendRequestEnabled(userId, body.friendRequestEnabled)
+                SettingsTable.changeFriendRequestEnabled(userId, body.friendRequestEnabled, curState)
             } catch (e: Exception) {
                 return@post call.respond(
                     HttpStatusCode.InternalServerError,
