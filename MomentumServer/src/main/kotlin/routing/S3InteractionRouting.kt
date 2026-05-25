@@ -109,8 +109,11 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
 
                     val existingPost = PostsTable.getPostByMediaId(mediaId)
                     if (existingPost == null) {
+                        val viewerIds = body.receiverIds
+                            ?.mapNotNull { runCatching { UUID.fromString(it) }.getOrNull() }
+                            ?.takeIf { it.isNotEmpty() }
                         val postId = UUID.randomUUID()
-                        val post = PostModel(postId, userId, body.title ?: "", true, createdAt = null, mediaId)
+                        val post = PostModel(postId, userId, body.title ?: "", true, createdAt = null, mediaId, viewerIds)
                         PostsTable.insertNewPost(post)
 
                         val author = UserModel.getFullUser(userId)
@@ -187,6 +190,9 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
                 listOfFriends.forEach { friend ->
                     val posts = PostsTable.getPostsOfUser(UUID.fromString(friend.userId))
                     posts.forEach { post ->
+                        // null viewerIds means the post is visible to all friends
+                        if (post.viewerIds != null && !post.viewerIds.contains(userId)) return@forEach
+
                         val media = MediaTable.getMediaById(post.mediaId)
                         val reactions = PostActionsTable.getAllPostReactions(userId, post.id)
 

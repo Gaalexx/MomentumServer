@@ -18,7 +18,8 @@ data class PostModel(
     val title: String,
     val inUse: Boolean,
     val createdAt: String? = null,
-    val mediaId: UUID
+    val mediaId: UUID,
+    val viewerIds: List<UUID>? = null
 )
 
 object PostsTable : Table("posts") {
@@ -28,8 +29,14 @@ object PostsTable : Table("posts") {
     private val text = varchar("text", 120).nullable()
     private val inUse = bool("in_use").default(true)
     private val mediaId = uuid("media_id")
+    private val viewerIds = text("viewer_ids").nullable()
 
     override val primaryKey = PrimaryKey(id)
+
+    private fun parseViewerIds(raw: String?): List<UUID>? {
+        if (raw.isNullOrBlank()) return null
+        return raw.split(",").mapNotNull { runCatching { UUID.fromString(it.trim()) }.getOrNull() }
+    }
 
     fun insertNewPost(postModel: PostModel) {
         transaction {
@@ -39,6 +46,7 @@ object PostsTable : Table("posts") {
                 it[text] = postModel.title
                 it[inUse] = postModel.inUse
                 it[mediaId] = postModel.mediaId
+                it[viewerIds] = postModel.viewerIds?.joinToString(",") { uuid -> uuid.toString() }
             }
         }
     }
@@ -53,7 +61,8 @@ object PostsTable : Table("posts") {
                         row[PostsTable.text] ?: "",
                         row[PostsTable.inUse],
                         row[PostsTable.createdAt].toString(),
-                        row[PostsTable.mediaId]
+                        row[PostsTable.mediaId],
+                        parseViewerIds(row[PostsTable.viewerIds])
                     )
                 }
         }
@@ -74,7 +83,8 @@ object PostsTable : Table("posts") {
                     title = row[PostsTable.text] ?: "",
                     inUse = row[PostsTable.inUse],
                     createdAt = row[PostsTable.createdAt].toString(),
-                    mediaId = row[PostsTable.mediaId]
+                    mediaId = row[PostsTable.mediaId],
+                    viewerIds = parseViewerIds(row[PostsTable.viewerIds])
                 )
             }
             .singleOrNull()
@@ -91,7 +101,8 @@ object PostsTable : Table("posts") {
                     title = row[PostsTable.text] ?: "",
                     inUse = row[PostsTable.inUse],
                     createdAt = row[PostsTable.createdAt].toString(),
-                    mediaId = row[PostsTable.mediaId]
+                    mediaId = row[PostsTable.mediaId],
+                    viewerIds = parseViewerIds(row[PostsTable.viewerIds])
                 )
             }
         if (posts.size > 1) {
