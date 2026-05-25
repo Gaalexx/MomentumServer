@@ -1,7 +1,6 @@
 package com.example.database
 
 
-import org.jetbrains.exposed.sql.Op
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.insert
@@ -9,6 +8,7 @@ import org.jetbrains.exposed.sql.javatime.timestampWithTimeZone
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.UUIDColumnType
 import org.jetbrains.exposed.sql.deleteWhere
 import java.util.UUID
 
@@ -18,7 +18,8 @@ data class PostModel(
     val title: String,
     val inUse: Boolean,
     val createdAt: String? = null,
-    val mediaId: UUID
+    val mediaId: UUID,
+    val viewerIds: List<UUID>? = null
 )
 
 object PostsTable : Table("posts") {
@@ -28,6 +29,7 @@ object PostsTable : Table("posts") {
     private val text = varchar("text", 120).nullable()
     private val inUse = bool("in_use").default(true)
     private val mediaId = uuid("media_id")
+    private val viewerIds = array("viewer_ids", UUIDColumnType()).nullable()
 
     override val primaryKey = PrimaryKey(id)
 
@@ -39,6 +41,7 @@ object PostsTable : Table("posts") {
                 it[text] = postModel.title
                 it[inUse] = postModel.inUse
                 it[mediaId] = postModel.mediaId
+                it[viewerIds] = postModel.viewerIds
             }
         }
     }
@@ -46,14 +49,15 @@ object PostsTable : Table("posts") {
     fun getPostsOfUser(userId: UUID): List<PostModel> = transaction {
             PostsTable.selectAll()
                 .where { (PostsTable.userId eq userId) and (PostsTable.inUse eq true) }
-                .map{ row ->
+                .map { row ->
                     PostModel(
                         row[PostsTable.id],
                         row[PostsTable.userId],
                         row[PostsTable.text] ?: "",
                         row[PostsTable.inUse],
                         row[PostsTable.createdAt].toString(),
-                        row[PostsTable.mediaId]
+                        row[PostsTable.mediaId],
+                        row[PostsTable.viewerIds]
                     )
                 }
         }
@@ -74,7 +78,8 @@ object PostsTable : Table("posts") {
                     title = row[PostsTable.text] ?: "",
                     inUse = row[PostsTable.inUse],
                     createdAt = row[PostsTable.createdAt].toString(),
-                    mediaId = row[PostsTable.mediaId]
+                    mediaId = row[PostsTable.mediaId],
+                    viewerIds = row[PostsTable.viewerIds]
                 )
             }
             .singleOrNull()
@@ -91,7 +96,8 @@ object PostsTable : Table("posts") {
                     title = row[PostsTable.text] ?: "",
                     inUse = row[PostsTable.inUse],
                     createdAt = row[PostsTable.createdAt].toString(),
-                    mediaId = row[PostsTable.mediaId]
+                    mediaId = row[PostsTable.mediaId],
+                    viewerIds = row[PostsTable.viewerIds]
                 )
             }
         if (posts.size > 1) {

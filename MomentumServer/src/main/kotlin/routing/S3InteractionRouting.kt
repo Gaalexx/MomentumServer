@@ -109,54 +109,58 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
 
                     val existingPost = PostsTable.getPostByMediaId(mediaId)
                     if (existingPost == null) {
+                        // null = visible to all friends; non-null = restricted audience (author always included)
+                        val viewerIds = body.receiverIds
+                            ?.mapNotNull { runCatching { UUID.fromString(it) }.getOrNull() }
+                            ?.takeIf { it.isNotEmpty() }
+                            ?.let { ids -> (ids + userId).distinct() }
                         val postId = UUID.randomUUID()
-                        val post = PostModel(postId, userId, body.title ?: "", true, createdAt = null, mediaId)
+                        val post = PostModel(postId, userId, body.title ?: "", true, createdAt = null, mediaId, viewerIds)
                         PostsTable.insertNewPost(post)
 
                         val author = UserModel.getFullUser(userId)
                         val authorName = author?.username ?: author?.email ?: userId.toString()
                         val friends = transaction {Friendships.getFriendsWithDetails(userId)}
 
-                        friends.forEach { friend ->
-                            val friendId = UUID.fromString(friend.userId)
+                        friends
+                            .filter { friend -> viewerIds == null || UUID.fromString(friend.userId) in viewerIds }
+                            .forEach { friend ->
+                                val friendId = UUID.fromString(friend.userId)
 
-                            val settings = SettingsTable.getServerSettingsInfo(friendId)
-                            if(settings != null && settings.publicationsEnabled){
-                                val friendInfo = UserModel.getFullUser(friendId)
-                                val pushToken = friendInfo?.pushToken?.takeIf { it.isNotBlank() }
-                                if (pushToken != null) {
-                                    val pushResult = PushSender.sendToToken(
-                                        token = pushToken,
-                                        title = ResourceGetter.t("push_message.friend_sent_a_moment_header"),
-                                        body = ResourceGetter.tf("push_message.friend_sent_a_moment", authorName)
-                                    )
+                                val settings = SettingsTable.getServerSettingsInfo(friendId)
+                                if (settings != null && settings.publicationsEnabled) {
+                                    val friendInfo = UserModel.getFullUser(friendId)
+                                    val pushToken = friendInfo?.pushToken?.takeIf { it.isNotBlank() }
+                                    if (pushToken != null) {
+                                        val pushResult = PushSender.sendToToken(
+                                            token = pushToken,
+                                            title = ResourceGetter.t("push_message.friend_sent_a_moment_header"),
+                                            body = ResourceGetter.tf("push_message.friend_sent_a_moment", authorName)
+                                        )
 
-                                    when {
-                                        pushResult.isSuccess -> {
-                                            println("[INFO] Push sent for media $mediaId to user $userId with messageId ${pushResult.messageId}")
+                                        when {
+                                            pushResult.isSuccess -> {
+                                                println("[INFO] Push sent for media $mediaId to user $userId with messageId ${pushResult.messageId}")
+                                            }
+                                            pushResult.shouldInvalidateToken -> {
+                                                UserModel.clearPushToken(friendId, pushToken)
+                                                println(
+                                                    "[INFO] Invalid push token was cleared for friend $friendId " +
+                                                        "after failed push for media $mediaId: ${pushResult.errorCode ?: "UNKNOWN"}"
+                                                )
+                                            }
+                                            else -> {
+                                                println(
+                                                    "[INFO] Push was not sent for media $mediaId to user $userId: " +
+                                                        "${pushResult.errorCode ?: "UNKNOWN"} ${pushResult.errorMessage ?: ""}"
+                                                )
+                                            }
                                         }
-                                        pushResult.shouldInvalidateToken -> {
-                                            UserModel.clearPushToken(friendId, pushToken)
-                                            println(
-                                                "[INFO] Invalid push token was cleared for friend $friendId " +
-                                                    "after failed push for media $mediaId: ${pushResult.errorCode ?: "UNKNOWN"}"
-                                            )
-                                        }
-                                        else -> {
-                                            println(
-                                                "[INFO] Push was not sent for media $mediaId to user $userId: " +
-                                                    "${pushResult.errorCode ?: "UNKNOWN"} ${pushResult.errorMessage ?: ""}"
-                                            )
-                                        }
+                                    } else {
+                                        println("[INFO] Skipping push for media $mediaId: user $userId has no push token")
                                     }
-                                } else {
-                                    println("[INFO] Skipping push for media $mediaId: user $userId has no push token")
                                 }
                             }
-
-
-
-                        }
 
 
                     } else {
@@ -187,6 +191,9 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
                 listOfFriends.forEach { friend ->
                     val posts = PostsTable.getPostsOfUser(UUID.fromString(friend.userId))
                     posts.forEach { post ->
+                        // null viewerIds means the post is visible to all friends
+                        if (post.viewerIds != null && !post.viewerIds.contains(userId)) return@forEach
+
                         val media = MediaTable.getMediaById(post.mediaId)
                         val reactions = PostActionsTable.getAllPostReactions(userId, post.id)
 

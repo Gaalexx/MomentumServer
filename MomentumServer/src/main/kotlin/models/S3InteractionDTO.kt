@@ -24,6 +24,7 @@ data class S3UpdateStatusDTO(
     val status: UploadingStatus,
     val mediaId: String,
     val title: String? = null,
+    val receiverIds: List<String>? = null
 )
 
 @Serializable
