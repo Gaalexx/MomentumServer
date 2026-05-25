@@ -350,9 +350,9 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
                 s3ErrorMessage = "Media not found in database"
             }
 
+            val reactionsDeleted = PostActionsTable.deleteActionsOnPosts(listOf(postId))
             val postDeleted = PostsTable.deletePost(postId)
             val mediaDeleted = if (media != null) MediaTable.deleteMedia(post.mediaId) else true
-            val reactionsDeleted = PostActionsTable.deleteActionsOnPosts(listOf(postId))
 
             if (!postDeleted) {
                 return@delete call.respond(
