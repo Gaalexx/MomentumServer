@@ -75,19 +75,20 @@ fun Route.friendsRoutes(jwtService: JwtService) {
                     else -> "Friend request sent successfully"
                 }
 
-                val user = UserModel.getFullUser(toUserId)
-                val userSettings = SettingsTable.getServerSettingsInfo(toUserId)
-                if(user != null && user.pushToken != null && userSettings != null && userSettings.inAppNotifications) {
-                    val fromUser = UserModel.getFullUser(fromUUID)
-                    if(fromUser != null){
-                        PushSender.sendToToken(
-                            user.pushToken,
-                            ResourceGetter.t("push_message.friend_request_header"),
-                            ResourceGetter.tf("push_message.friend_request", fromUser.username ?: fromUser.email)
-                        )
+                if (result.action == "CREATED" || result.action == "RESENT") {
+                    val user = UserModel.getFullUser(toUserId)
+                    val userSettings = SettingsTable.getServerSettingsInfo(toUserId)
+                    if (user != null && user.pushToken != null && userSettings != null && userSettings.inAppNotifications && userSettings.friendRequestEnabled) {
+                        val fromUser = UserModel.getFullUser(fromUUID)
+                        if (fromUser != null) {
+                            PushSender.sendToToken(
+                                user.pushToken,
+                                ResourceGetter.t("push_message.friend_request_header"),
+                                ResourceGetter.tf("push_message.friend_request", fromUser.username ?: fromUser.email)
+                            )
+                        }
                     }
                 }
-
 
                 call.respond(
                     HttpStatusCode.Created,
@@ -139,19 +140,20 @@ fun Route.friendsRoutes(jwtService: JwtService) {
                     else -> "Friend request sent successfully"
                 }
 
-                val user = UserModel.getFullUser(toUserId)
-                val userSettings = SettingsTable.getServerSettingsInfo(toUserId)
-                if(user != null && user.pushToken != null && userSettings != null && userSettings.inAppNotifications) {
-                    val fromUser = UserModel.getFullUser(fromUUID)
-                    if(fromUser != null){
-                        PushSender.sendToToken(
-                            user.pushToken,
-                            ResourceGetter.t("push_message.friend_request_header"),
-                            ResourceGetter.tf("push_message.friend_request", fromUser.username ?: fromUser.email)
-                        )
+                if (result.action == "CREATED" || result.action == "RESENT") {
+                    val user = UserModel.getFullUser(toUserId)
+                    val userSettings = SettingsTable.getServerSettingsInfo(toUserId)
+                    if (user != null && user.pushToken != null && userSettings != null && userSettings.inAppNotifications && userSettings.friendRequestEnabled) {
+                        val fromUser = UserModel.getFullUser(fromUUID)
+                        if (fromUser != null) {
+                            PushSender.sendToToken(
+                                user.pushToken,
+                                ResourceGetter.t("push_message.friend_request_header"),
+                                ResourceGetter.tf("push_message.friend_request", fromUser.username ?: fromUser.email)
+                            )
+                        }
                     }
                 }
-
 
                 call.respond(
                     HttpStatusCode.Created,
@@ -314,14 +316,12 @@ fun Route.friendsRoutes(jwtService: JwtService) {
                             if(fromUser != null) {
                                 val userSettings = SettingsTable.getServerSettingsInfo(fromUser.id)
                                 val toUser = UserModel.getFullUser(UUID.fromString(request.toId))
-                                if(toUser != null && fromUser.pushToken != null && userSettings != null && userSettings.inAppNotifications) {
-                                    if(toUser != null){
-                                        PushSender.sendToToken(
-                                            fromUser.pushToken,
-                                            ResourceGetter.t("push_message.friend_request_answer_accept_header"),
-                                            ResourceGetter.tf("push_message.friend_request_answer_accept", toUser.username ?: toUser.email)
-                                        )
-                                    }
+                                if (toUser != null && fromUser.pushToken != null && userSettings != null && userSettings.inAppNotifications && userSettings.friendRequestEnabled) {
+                                    PushSender.sendToToken(
+                                        fromUser.pushToken,
+                                        ResourceGetter.t("push_message.friend_request_answer_accept_header"),
+                                        ResourceGetter.tf("push_message.friend_request_answer_accept", toUser.username ?: toUser.email)
+                                    )
                                 }
                             }
                         }
@@ -386,7 +386,7 @@ fun Route.friendsRoutes(jwtService: JwtService) {
                             if(fromUser != null) {
                                 val userSettings = SettingsTable.getServerSettingsInfo(fromUser.id)
                                 val toUser = UserModel.getFullUser(UUID.fromString(request.toId))
-                                if(toUser != null && fromUser.pushToken != null && userSettings != null && userSettings.inAppNotifications) {
+                                if (toUser != null && fromUser.pushToken != null && userSettings != null && userSettings.inAppNotifications && userSettings.friendRequestEnabled) {
                                     PushSender.sendToToken(
                                         fromUser.pushToken,
                                         ResourceGetter.t("push_message.friend_request_answer_reject_header"),
