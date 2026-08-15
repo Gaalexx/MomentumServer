@@ -99,10 +99,10 @@ object PostActionsTable : Table(name = "post_actions") {
         } > 0
     }
 
-    fun deleteActionsOnPosts(postId: UUID): Boolean {
-
+    fun deleteActionsOnPosts(postId: List<UUID>): Boolean {
+        if(postId.isEmpty()) return true
         transaction {
-            PostActionsTable.deleteWhere { PostActionsTable.postId eq postId }
+            PostActionsTable.deleteWhere { PostActionsTable.postId inList postId }
         }
         return true
     }

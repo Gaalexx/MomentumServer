@@ -345,7 +345,7 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
 
             val postDeleted = PostsTable.deletePost(postId)
             val mediaDeleted = if (media != null) MediaTable.deleteMedia(post.mediaId) else true
-            val reactionsDeleted = PostActionsTable.deleteActionsOnPosts(postId)
+            val reactionsDeleted = PostActionsTable.deleteActionsOnPosts(listOf(postId))
 
             if (!postDeleted) {
                 return@delete call.respond(
