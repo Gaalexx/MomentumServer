@@ -2,7 +2,8 @@ package com.example.routing
 
 
 import com.example.Models.*
-import com.example.data.codestorage.CodeStorage
+import com.example.database.VerificationCodeRepository
+import com.example.database.CodeType
 import com.example.data.emailsender.EmailSender
 import com.example.database.SessionTable
 import com.example.database.SettingsTable
@@ -17,6 +18,9 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import java.util.*
+
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 suspend fun ApplicationCall.safeUserId(): UUID? {
     val principal = principal<JWTPrincipal>() ?: run{
@@ -308,10 +312,16 @@ fun Route.settingsRoutes() {
 
         post("/send-code"){
             val userId = call.safeUserId() ?: return@post
-            val email = UserModel.getEmailById(userId)?: return@post
+            val email = UserModel.getEmailById(userId)
+                ?: return@post call.respond(
+                    HttpStatusCode.NotFound,
+                    SettingsBooleanDTO(false, "Email not found")
+                )
 
             val code = (100000..999999).random().toString()
-            CodeStorage.saveCode(email, code)
+            withContext(Dispatchers.IO) {
+                VerificationCodeRepository.saveCode(email, CodeType.EMAIL, code)
+            }
             val sendResult = EmailSender.sendVerificationCode(email, code)
             sendResult.onSuccess {
                 call.respond(HttpStatusCode.OK, SettingsBooleanDTO(true, "Successfully sent"))
@@ -323,9 +333,15 @@ fun Route.settingsRoutes() {
         post("/check-code") {
             val body = call.receive<CheckCodeRequestDTO>()
             val userId = call.safeUserId() ?: return@post
-            val email = UserModel.getEmailById(userId)?: return@post
+            val email = UserModel.getEmailById(userId)
+                ?: return@post call.respond(
+                    HttpStatusCode.NotFound,
+                    SettingsBooleanDTO(false, "Email not found")
+                )
 
-            val isValid = CodeStorage.verifyCode(email, body.code)
+            val isValid = withContext(Dispatchers.IO) {
+                VerificationCodeRepository.verifyCode(email, CodeType.EMAIL, body.code)
+            }
             if(isValid){
                 call.respond(HttpStatusCode.OK, SettingsBooleanDTO(true, "Successfully checked"))
             }

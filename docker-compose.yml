@@ -50,7 +50,12 @@ services:
     networks: [backend]
     restart: unless-stopped
     volumes:
-      - ./MomentumServer/firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
+      - type: bind
+        source: ./MomentumServer/firebase-service-account.json
+        target: /run/secrets/firebase-service-account.json
+        read_only: true
+        bind:
+         create_host_path: false
 
   nginx:
     image: nginx:1.27

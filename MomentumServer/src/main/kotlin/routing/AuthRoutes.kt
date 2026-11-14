@@ -2,7 +2,8 @@ package com.example.routing
 
 
 import com.example.Models.*
-import com.example.data.codestorage.CodeStorage
+import com.example.database.CodeType
+import com.example.database.VerificationCodeRepository
 import com.example.data.emailsender.EmailSender
 import com.example.database.SessionTable
 import com.example.database.SettingsTable
@@ -18,6 +19,9 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import java.util.UUID
+
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 fun Route.authRoutes(jwtService: JwtService) {
     val jwtConfig = environment.config.config("jwt")
@@ -95,7 +99,9 @@ fun Route.authRoutes(jwtService: JwtService) {
         val id = UserModel.getIdByEmail(body.email)
         if(id == null) {
             val code = (100000..999999).random().toString()
-            CodeStorage.saveCode(body.email, code)
+            withContext(Dispatchers.IO) {
+                VerificationCodeRepository.saveCode(body.email, CodeType.EMAIL, code)
+            }
             val sendResult = EmailSender.sendVerificationCode(body.email, code)
             sendResult.onSuccess {
                 call.respond(HttpStatusCode.OK, CheckResponseDTO(true))
@@ -115,7 +121,9 @@ fun Route.authRoutes(jwtService: JwtService) {
 
         if(id != null) {
             val code = (100000..999999).random().toString()
-            CodeStorage.saveCode(body.email, code)
+            withContext(Dispatchers.IO) {
+                VerificationCodeRepository.saveCode(body.email, CodeType.EMAIL, code)
+            }
             val sendResult = EmailSender.sendVerificationCode(body.email, code)
             sendResult.onSuccess {
                 call.respond(HttpStatusCode.OK, CheckResponseDTO(true))
@@ -146,72 +154,66 @@ fun Route.authRoutes(jwtService: JwtService) {
         val id = UserModel.getIdByPhone(body.phone)
         if(id == null) {
             // TODO отправка СМС на телефон
+            call.respond(HttpStatusCode.OK, CheckResponseDTO(true))
         }
         else{
             call.respond(HttpStatusCode.OK, CheckResponseDTO(false))
         }
         // то же самое и с телефоном
-
-        call.respond(HttpStatusCode.OK, CheckResponseDTO(true))
     }
 
     post("/check-code") {
         val body = call.receive<CheckCodeRequestDTO>()
 
-        if(body.email != null){
-            val isValid = CodeStorage.verifyCode(body.email, body.code)
-            if(isValid){
-                call.respond(HttpStatusCode.OK, CheckResponseDTO(true))
+        when {
+            body.email != null -> {
+                val isValid = withContext(Dispatchers.IO) {
+                    VerificationCodeRepository.verifyCode(body.email, CodeType.EMAIL, body.code)
+                }
+                call.respond(HttpStatusCode.OK, CheckResponseDTO(isValid))
             }
-            else{
-                call.respond(HttpStatusCode.OK, CheckResponseDTO(false))
+            body.phone != null -> {
+                val isValid = withContext(Dispatchers.IO) {
+                    VerificationCodeRepository.verifyCode(body.phone, CodeType.PHONE, body.code)
+                }
+                call.respond(HttpStatusCode.OK, CheckResponseDTO(isValid))
             }
+            else -> call.respond(HttpStatusCode.BadRequest, CheckResponseDTO(false))
         }
-        else if(body.phone != null){
-            val isValid = CodeStorage.verifyCode(body.phone, body.code)
-            if(isValid){
-                call.respond(HttpStatusCode.OK, CheckResponseDTO(true))
-            }
-            else{
-                call.respond(HttpStatusCode.OK, CheckResponseDTO(false))
-            }
-        }
-        call.respond(HttpStatusCode.OK, CheckResponseDTO(true))
     }
 
     post("/check-login-code"){
         val body = call.receive<CheckCodeLoginRequestDTO>()
 
-        if(body.email != null){
-            val id = UserModel.getIdByEmail(body.email)
-            val token = RefreshTokenGenerator.generate()
-
-
-            val isValid = CodeStorage.verifyCode(body.email, body.code)
-            if(isValid && id != null){
-                SessionTable.addNewSession(id, token, body.deviceInfo)
-                call.respond(HttpStatusCode.OK, CheckCodeLoginResponseDTO(true, token))
+        when {
+            body.email != null -> {
+                val id = UserModel.getIdByEmail(body.email)
+                val isValid = withContext(Dispatchers.IO) {
+                    VerificationCodeRepository.verifyCode(body.email, CodeType.EMAIL, body.code)
+                }
+                if (isValid && id != null) {
+                    val token = RefreshTokenGenerator.generate()
+                    SessionTable.addNewSession(id, token, body.deviceInfo)
+                    call.respond(HttpStatusCode.OK, CheckCodeLoginResponseDTO(true, token))
+                } else {
+                    call.respond(HttpStatusCode.OK, CheckCodeLoginResponseDTO(false))
+                }
             }
-            else{
-                call.respond(HttpStatusCode.OK, CheckCodeLoginResponseDTO(false))
+            body.phone != null -> { //TODO дописать логику для телефона
+                val id = UserModel.getIdByPhone(body.phone)
+                val isValid = withContext(Dispatchers.IO) {
+                    VerificationCodeRepository.verifyCode(body.phone, CodeType.PHONE, body.code)
+                }
+                if (isValid && id != null) {
+                    val token = RefreshTokenGenerator.generate()
+                    SessionTable.addNewSession(id, token, body.deviceInfo)
+                    call.respond(HttpStatusCode.OK, CheckCodeLoginResponseDTO(true, token))
+                } else {
+                    call.respond(HttpStatusCode.OK, CheckCodeLoginResponseDTO(false))
+                }
             }
-            return@post
+            else -> call.respond(HttpStatusCode.BadRequest, CheckCodeLoginResponseDTO(false))
         }
-        else if(body.phone != null){ //TODO дописать логику для телефона
-            val id = UserModel.getIdByPhone(body.phone)
-            val token = RefreshTokenGenerator.generate()
-
-            val isValid = CodeStorage.verifyCode(body.phone, body.code)
-            if(isValid){
-                call.respond(HttpStatusCode.OK, CheckCodeLoginResponseDTO(true, token))
-            }
-            else{
-                call.respond(HttpStatusCode.OK, CheckCodeLoginResponseDTO(false))
-            }
-            return@post
-        }
-        call.respond(HttpStatusCode.OK, CheckCodeLoginResponseDTO(false))
-
     }
 
     post("/login"){

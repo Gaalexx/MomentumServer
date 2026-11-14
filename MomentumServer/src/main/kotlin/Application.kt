@@ -1,11 +1,17 @@
 package com.example
 
-import com.example.data.codestorage.CodeStorage
+import com.example.database.VerificationCodeRepository
 import com.example.firebase.initFirebase
 import com.example.tokens.JwtService
 import io.ktor.server.application.*
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.sql.Database
+
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 fun main(args: Array<String>) {
     io.ktor.server.netty.EngineMain.main(args)
@@ -39,12 +45,25 @@ fun Application.module() {
 
     initFirebase()
 
-    // launch of background cleaning
-    CodeStorage.startCleanupScheduler(this)
     val jwtService = JwtService(jwtConfig.domain, jwtConfig.audience, jwtConfig.secret)
 
     Database.connect(url, driver = "org.postgresql.Driver", user = user, password = pass)
     runMigrations(url, user, pass)
+
+    // launch of background cleaning
+    launch {
+        while (isActive) {
+            delay(60_000)
+            try {
+                withContext(Dispatchers.IO) {
+                    VerificationCodeRepository.removeExpired()
+                }
+            } catch (e: Exception) {
+                println("[ERROR] Failed to remove expired verification codes: ${e.message}")
+            }
+        }
+    }
+
     configureHTTP()
     configureMonitoring()
     configureSecurity(jwtConfig)
