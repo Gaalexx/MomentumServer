@@ -6,6 +6,10 @@ import com.google.firebase.messaging.Message
 import com.google.firebase.messaging.MessagingErrorCode
 import com.google.firebase.messaging.Notification
 
+import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+
 data class PushSendResult(
     val isSuccess: Boolean,
     val messageId: String? = null,
@@ -15,7 +19,7 @@ data class PushSendResult(
 )
 
 object PushSender {
-    fun sendToToken(
+    suspend fun sendToToken(
         token: String,
         title: String,
         body: String,
@@ -33,7 +37,9 @@ object PushSender {
             .build()
 
         return try {
-            val messageId = FirebaseMessaging.getInstance().send(message)
+            val messageId = runInterruptible(Dispatchers.IO) {
+                FirebaseMessaging.getInstance().send(message)
+            }
             PushSendResult(isSuccess = true, messageId = messageId)
         } catch (e: FirebaseMessagingException) {
             val errorCode = e.messagingErrorCode?.name ?: e.errorCode.toString()
@@ -51,7 +57,15 @@ object PushSender {
                 errorMessage = e.message,
                 shouldInvalidateToken = shouldInvalidateToken
             )
-        } catch (e: Exception) {
+        }
+        catch (e: CancellationException){
+            println(
+                "[ERROR] Push cancelled for token ${maskToken(token)}\n" +
+                        e.stackTraceToString()
+            )
+            throw e
+        }
+        catch (e: Exception) {
             println(
                 "[ERROR] Unexpected push sending failure for token ${maskToken(token)}\n" +
                     e.stackTraceToString()

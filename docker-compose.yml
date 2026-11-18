@@ -16,6 +16,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 15
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.track=all
 
   migrate:
     image: flyway/flyway:10
