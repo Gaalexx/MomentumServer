@@ -36,11 +36,11 @@ data class MediaModel(
 
 object MediaTable : Table(name = "media") {
     private val id = uuid("id")
-    private val userId = uuid("user_id")
+    internal val userId = uuid("user_id")
     private val mediaType = varchar("media_type", length = 16)
     private val mimeType = varchar("mime_type", length = 150)
     private val status = varchar("status", length = 20).default("UPLOADING")
-    private val objectKey = varchar("object_key", length = 1024).uniqueIndex("ok_uq")
+    internal val objectKey = varchar("object_key", length = 1024).uniqueIndex("ok_uq")
     private val sizeBytes = long("size_bytes")
     private val durationMs = long("duration_ms").nullable()
 

@@ -20,6 +20,11 @@ import com.example.Models.FriendRequestStatus
 import com.example.Models.FriendRequestUpdateStatus
 import org.jetbrains.exposed.sql.selectAll
 
+import kotlinx.coroutines.Dispatchers
+import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
+import com.example.s3Client.S3Client
+
 data class FriendRequestResult(
     val action: String,  // "CREATED", "ALREADY_SENT", "MIRROR_ACCEPTED", "RESENT"
     val requestId: UUID
@@ -156,138 +161,195 @@ object FriendRequests : Table("friend_requests") {
         return FriendRequestResult("CREATED", requestId)
     }
 
-    fun getIncomingRequests(userId: UUID): List<FriendRequestWithUserDetailsDTO> {
-        val recipientUser = UserModel.selectAll()
-            .where { UserModel.id eq userId }
-            .singleOrNull()
+    suspend fun getIncomingRequests(userId: UUID): List<FriendRequestWithUserDetailsDTO> {
+        val raw = newSuspendedTransaction(Dispatchers.IO) {
+            val recipientUser = UserModel.selectAll()
+                .where { UserModel.id eq userId }
+                .singleOrNull()
+            val recipientDisplayName = recipientUser?.let { UserModel.getDisplayNameFromRow(it) } ?: "Unknown User"
 
-        val recipientDisplayName = recipientUser?.let {
-            UserModel.getDisplayNameFromRow(it)
-        } ?: "Unknown User"
-
-        return join(UserModel, JoinType.INNER,
-            onColumn = FriendRequests.fromUserId,
-            otherColumn = UserModel.id)
-            .selectAll()
-            .where {
-                (FriendRequests.toUserId eq userId) and
-                        (FriendRequests.status eq FriendRequestStatus.PENDING.name.lowercase())
-            }
-            .orderBy(FriendRequests.createdAt to SortOrder.DESC)
-            .map { row ->
-                FriendRequestWithUserDetailsDTO(
-                    id = row[FriendRequests.id].toString(),
-                    fromUserId = row[FriendRequests.fromUserId].toString(),
-                    toUserId = row[FriendRequests.toUserId].toString(),
-                    status = row.getStatusEnum(),
-                    createdAt = row[FriendRequests.createdAt].toInstant(ZoneOffset.UTC).toString(),
-                    updatedAt = row[FriendRequests.updatedAt].toInstant(ZoneOffset.UTC).toString(),
-                    fromUserUsername = UserModel.getDisplayNameFromRow(row),
-                    fromUserAvatarUrl = getAvatarURL(row[FriendRequests.fromUserId]),
-                    toUserUsername = recipientDisplayName
-                )
-            }
-    }
-
-    fun getOutgoingRequests(userId: UUID): List<FriendRequestWithUserDetailsDTO> {
-        val senderUser = UserModel.selectAll()
-            .where { UserModel.id eq userId }
-            .singleOrNull()
-
-        val senderDisplayName = senderUser?.let {
-            UserModel.getDisplayNameFromRow(it)
-        } ?: "Unknown User"
-
-        return join(UserModel, JoinType.INNER,
-            onColumn = FriendRequests.toUserId,
-            otherColumn = UserModel.id)
-            .selectAll()
-            .where {
-                (FriendRequests.fromUserId eq userId) and
-                        (FriendRequests.status eq FriendRequestStatus.PENDING.name.lowercase())
-            }
-            .orderBy(FriendRequests.createdAt to SortOrder.DESC)
-            .map { row ->
-                FriendRequestWithUserDetailsDTO(
-                    id = row[FriendRequests.id].toString(),
-                    fromUserId = row[FriendRequests.fromUserId].toString(),
-                    toUserId = row[FriendRequests.toUserId].toString(),
-                    status = row.getStatusEnum(),
-                    createdAt = row[FriendRequests.createdAt].toInstant(ZoneOffset.UTC).toString(),
-                    updatedAt = row[FriendRequests.updatedAt].toInstant(ZoneOffset.UTC).toString(),
-                    fromUserUsername = senderDisplayName,
-                    fromUserAvatarUrl = getAvatarURL(row[FriendRequests.fromUserId]),
-                    toUserUsername = UserModel.getDisplayNameFromRow(row)
-                )
-            }
-    }
-
-    fun getRejectedOrCancelledRequests(
-        userId: UUID,
-        asSender: Boolean = true
-    ): List<FriendRequestWithUserDetailsDTO> {
-        val statuses = listOf(
-            FriendRequestStatus.REJECTED.name.lowercase(),
-            FriendRequestStatus.CANCELLED.name.lowercase()
-        )
-
-        val whereCondition = if (asSender) {
-            FriendRequests.fromUserId eq userId
-        } else {
-            FriendRequests.toUserId eq userId
-        }
-
-        // Get the current user's details once
-        val currentUser = UserModel.selectAll()
-            .where { UserModel.id eq userId }
-            .singleOrNull()
-
-        val currentUserDisplayName = currentUser?.let {
-            UserModel.getDisplayNameFromRow(it)
-        } ?: "Unknown User"
-
-        return if (asSender) {
-            // For outgoing rejected/cancelled - current user is the sender
-            join(UserModel, JoinType.INNER,
-                onColumn = FriendRequests.toUserId,
-                otherColumn = UserModel.id)
-                .selectAll()
-                .where { whereCondition and (FriendRequests.status inList statuses) }
-                .orderBy(FriendRequests.createdAt to SortOrder.DESC)
-                .map { row ->
-                    FriendRequestWithUserDetailsDTO(
-                        id = row[FriendRequests.id].toString(),
-                        fromUserId = row[FriendRequests.fromUserId].toString(),
-                        toUserId = row[FriendRequests.toUserId].toString(),
-                        status = row.getStatusEnum(),
-                        createdAt = row[FriendRequests.createdAt].toInstant(ZoneOffset.UTC).toString(),
-                        updatedAt = row[FriendRequests.updatedAt].toInstant(ZoneOffset.UTC).toString(),
-                        fromUserUsername = currentUserDisplayName,
-                        fromUserAvatarUrl = getAvatarURL(row[FriendRequests.fromUserId]),
-                        toUserUsername = UserModel.getDisplayNameFromRow(row)
-                    )
-                }
-        } else {
-            // For incoming rejected/cancelled - current user is the recipient
             join(UserModel, JoinType.INNER,
                 onColumn = FriendRequests.fromUserId,
                 otherColumn = UserModel.id)
                 .selectAll()
-                .where { whereCondition and (FriendRequests.status inList statuses) }
+                .where {
+                    (FriendRequests.toUserId eq userId) and
+                            (FriendRequests.status eq FriendRequestStatus.PENDING.name.lowercase())
+                }
                 .orderBy(FriendRequests.createdAt to SortOrder.DESC)
                 .map { row ->
-                    FriendRequestWithUserDetailsDTO(
-                        id = row[FriendRequests.id].toString(),
-                        fromUserId = row[FriendRequests.fromUserId].toString(),
-                        toUserId = row[FriendRequests.toUserId].toString(),
-                        status = row.getStatusEnum(),
-                        createdAt = row[FriendRequests.createdAt].toInstant(ZoneOffset.UTC).toString(),
-                        updatedAt = row[FriendRequests.updatedAt].toInstant(ZoneOffset.UTC).toString(),
-                        fromUserUsername = UserModel.getDisplayNameFromRow(row),
-                        fromUserAvatarUrl = getAvatarURL(row[FriendRequests.fromUserId]),
-                        toUserUsername = currentUserDisplayName
+                    Pair(
+                        FriendRequestWithUserDetailsDTO(
+                            id = row[FriendRequests.id].toString(),
+                            fromUserId = row[FriendRequests.fromUserId].toString(),
+                            toUserId = row[FriendRequests.toUserId].toString(),
+                            status = row.getStatusEnum(),
+                            createdAt = row[FriendRequests.createdAt].toInstant(ZoneOffset.UTC).toString(),
+                            updatedAt = row[FriendRequests.updatedAt].toInstant(ZoneOffset.UTC).toString(),
+                            fromUserUsername = UserModel.getDisplayNameFromRow(row),
+                            fromUserAvatarUrl = null,
+                            toUserUsername = recipientDisplayName
+                        ),
+                        row[FriendRequests.fromUserId]
                     )
                 }
+        }
+
+        val userIds = raw.map { it.second }.distinct()
+
+        val avatarUrls = if (userIds.isEmpty()) {
+            emptyMap()
+        } else {
+            val avatarKeys = newSuspendedTransaction(Dispatchers.IO) {
+                AvatarsTable.select(AvatarsTable.userId, AvatarsTable.objectKey)
+                    .where { (AvatarsTable.userId inList userIds) and (AvatarsTable.isActive eq true) }
+                    .associate { it[AvatarsTable.userId] to it[AvatarsTable.objectKey] }
+            }
+            avatarKeys.mapValues { (_, key) -> S3Client.getPresignedObjectUrl(key) }
+        }
+
+        return raw.map { (dto, fromUserId) ->
+            dto.copy(fromUserAvatarUrl = avatarUrls[fromUserId])
+        }
+    }
+
+    suspend fun getOutgoingRequests(userId: UUID): List<FriendRequestWithUserDetailsDTO> {
+        val raw = newSuspendedTransaction(Dispatchers.IO) {
+            val senderUser = UserModel.selectAll()
+                .where { UserModel.id eq userId }
+                .singleOrNull()
+            val senderDisplayName = senderUser?.let { UserModel.getDisplayNameFromRow(it) } ?: "Unknown User"
+
+            join(UserModel, JoinType.INNER,
+                onColumn = FriendRequests.toUserId,
+                otherColumn = UserModel.id)
+                .selectAll()
+                .where {
+                    (FriendRequests.fromUserId eq userId) and
+                            (FriendRequests.status eq FriendRequestStatus.PENDING.name.lowercase())
+                }
+                .orderBy(FriendRequests.createdAt to SortOrder.DESC)
+                .map { row ->
+                    Pair(
+                        FriendRequestWithUserDetailsDTO(
+                            id = row[FriendRequests.id].toString(),
+                            fromUserId = row[FriendRequests.fromUserId].toString(),
+                            toUserId = row[FriendRequests.toUserId].toString(),
+                            status = row.getStatusEnum(),
+                            createdAt = row[FriendRequests.createdAt].toInstant(ZoneOffset.UTC).toString(),
+                            updatedAt = row[FriendRequests.updatedAt].toInstant(ZoneOffset.UTC).toString(),
+                            fromUserUsername = senderDisplayName,
+                            fromUserAvatarUrl = null,
+                            toUserUsername = UserModel.getDisplayNameFromRow(row)
+                        ),
+                        row[FriendRequests.fromUserId]
+                    )
+                }
+        }
+
+        val userIds = raw.map { it.second }.distinct()
+
+        val avatarUrls = if (userIds.isEmpty()) {
+            emptyMap()
+        } else {
+            val avatarKeys = newSuspendedTransaction(Dispatchers.IO) {
+                AvatarsTable.select(AvatarsTable.userId, AvatarsTable.objectKey)
+                    .where { (AvatarsTable.userId inList userIds) and (AvatarsTable.isActive eq true) }
+                    .associate { it[AvatarsTable.userId] to it[AvatarsTable.objectKey] }
+            }
+            avatarKeys.mapValues { (_, key) -> S3Client.getPresignedObjectUrl(key) }
+        }
+
+        return raw.map { (dto, fromUserId) ->
+            dto.copy(fromUserAvatarUrl = avatarUrls[fromUserId])
+        }
+    }
+
+    suspend fun getRejectedOrCancelledRequests(
+        userId: UUID,
+        asSender: Boolean = true
+    ): List<FriendRequestWithUserDetailsDTO> {
+        val raw = newSuspendedTransaction(Dispatchers.IO) {
+            val statuses = listOf(
+                FriendRequestStatus.REJECTED.name.lowercase(),
+                FriendRequestStatus.CANCELLED.name.lowercase()
+            )
+
+            val whereCondition = if (asSender) {
+                FriendRequests.fromUserId eq userId
+            } else {
+                FriendRequests.toUserId eq userId
+            }
+
+            val currentUser = UserModel.selectAll()
+                .where { UserModel.id eq userId }
+                .singleOrNull()
+            val currentUserDisplayName = currentUser?.let { UserModel.getDisplayNameFromRow(it) } ?: "Unknown User"
+
+            if (asSender) {
+                join(UserModel, JoinType.INNER,
+                    onColumn = FriendRequests.toUserId,
+                    otherColumn = UserModel.id)
+                    .selectAll()
+                    .where { whereCondition and (FriendRequests.status inList statuses) }
+                    .orderBy(FriendRequests.createdAt to SortOrder.DESC)
+                    .map { row ->
+                        Pair(
+                            FriendRequestWithUserDetailsDTO(
+                                id = row[FriendRequests.id].toString(),
+                                fromUserId = row[FriendRequests.fromUserId].toString(),
+                                toUserId = row[FriendRequests.toUserId].toString(),
+                                status = row.getStatusEnum(),
+                                createdAt = row[FriendRequests.createdAt].toInstant(ZoneOffset.UTC).toString(),
+                                updatedAt = row[FriendRequests.updatedAt].toInstant(ZoneOffset.UTC).toString(),
+                                fromUserUsername = currentUserDisplayName,
+                                fromUserAvatarUrl = null,
+                                toUserUsername = UserModel.getDisplayNameFromRow(row)
+                            ),
+                            row[FriendRequests.fromUserId]
+                        )
+                    }
+            } else {
+                join(UserModel, JoinType.INNER,
+                    onColumn = FriendRequests.fromUserId,
+                    otherColumn = UserModel.id)
+                    .selectAll()
+                    .where { whereCondition and (FriendRequests.status inList statuses) }
+                    .orderBy(FriendRequests.createdAt to SortOrder.DESC)
+                    .map { row ->
+                        Pair(
+                            FriendRequestWithUserDetailsDTO(
+                                id = row[FriendRequests.id].toString(),
+                                fromUserId = row[FriendRequests.fromUserId].toString(),
+                                toUserId = row[FriendRequests.toUserId].toString(),
+                                status = row.getStatusEnum(),
+                                createdAt = row[FriendRequests.createdAt].toInstant(ZoneOffset.UTC).toString(),
+                                updatedAt = row[FriendRequests.updatedAt].toInstant(ZoneOffset.UTC).toString(),
+                                fromUserUsername = UserModel.getDisplayNameFromRow(row),
+                                fromUserAvatarUrl = null,
+                                toUserUsername = currentUserDisplayName
+                            ),
+                            row[FriendRequests.fromUserId]
+                        )
+                    }
+            }
+        }
+
+        val userIds = raw.map { it.second }.distinct()
+
+        val avatarUrls = if (userIds.isEmpty()) {
+            emptyMap()
+        } else {
+            val avatarKeys = newSuspendedTransaction(Dispatchers.IO) {
+                AvatarsTable.select(AvatarsTable.userId, AvatarsTable.objectKey)
+                    .where { (AvatarsTable.userId inList userIds) and (AvatarsTable.isActive eq true) }
+                    .associate { it[AvatarsTable.userId] to it[AvatarsTable.objectKey] }
+            }
+            avatarKeys.mapValues { (_, key) -> S3Client.getPresignedObjectUrl(key) }
+        }
+
+        return raw.map { (dto, fromUserId) ->
+            dto.copy(fromUserAvatarUrl = avatarUrls[fromUserId])
         }
     }
 
@@ -388,44 +450,69 @@ object Friendships : Table("friendships") {
         }
     }
 
-    fun getFriendsWithDetails(userId: UUID): List<FriendshipResponseDTO> {
-        val friends1 = join(UserModel, JoinType.INNER,
-            onColumn = Friendships.userId2,
-            otherColumn = UserModel.id)
-            .selectAll()
-            .where { Friendships.userId1 eq userId }
-            .map { row ->
-                val friendId = row[UserModel.id]
-                FriendshipResponseDTO(
-                    userId = friendId.toString(),
-                    username = UserModel.getDisplayNameFromRow(row),
-                    email = UserModel.extractEmail(row),
-                    phoneNumber = UserModel.extractPhoneNumber(row),
-                    friendsSince = row[Friendships.createdAt].toInstant(ZoneOffset.UTC).toString(),
-                    userAvatarUrl = getAvatarURL(friendId),
-                    hasPremium = UserModel.extractHasPremium(row)
-                )
-            }
+    suspend fun getFriendsWithDetails(userId: UUID): List<FriendshipResponseDTO> {
+        val raw = newSuspendedTransaction(Dispatchers.IO) {
+            val friends1 = join(UserModel, JoinType.INNER,
+                onColumn = Friendships.userId2,
+                otherColumn = UserModel.id)
+                .selectAll()
+                .where { Friendships.userId1 eq userId }
+                .map { row ->
+                    val friendId = row[UserModel.id]
+                    Pair(
+                        FriendshipResponseDTO(
+                            userId = friendId.toString(),
+                            username = UserModel.getDisplayNameFromRow(row),
+                            email = UserModel.extractEmail(row),
+                            phoneNumber = UserModel.extractPhoneNumber(row),
+                            friendsSince = row[Friendships.createdAt].toInstant(ZoneOffset.UTC).toString(),
+                            userAvatarUrl = null,
+                            hasPremium = UserModel.extractHasPremium(row)
+                        ),
+                        friendId
+                    )
+                }
 
-        val friends2 = join(UserModel, JoinType.INNER,
-            onColumn = Friendships.userId1,
-            otherColumn = UserModel.id)
-            .selectAll()
-            .where { Friendships.userId2 eq userId }
-            .map { row ->
-                val friendId = row[UserModel.id]
-                FriendshipResponseDTO(
-                    userId = friendId.toString(),
-                    username = UserModel.getDisplayNameFromRow(row),
-                    email = UserModel.extractEmail(row),
-                    phoneNumber = UserModel.extractPhoneNumber(row),
-                    friendsSince = row[Friendships.createdAt].toInstant(ZoneOffset.UTC).toString(),
-                    userAvatarUrl = getAvatarURL(friendId),
-                    hasPremium = UserModel.extractHasPremium(row)
-                )
-            }
+            val friends2 = join(UserModel, JoinType.INNER,
+                onColumn = Friendships.userId1,
+                otherColumn = UserModel.id)
+                .selectAll()
+                .where { Friendships.userId2 eq userId }
+                .map { row ->
+                    val friendId = row[UserModel.id]
+                    Pair(
+                        FriendshipResponseDTO(
+                            userId = friendId.toString(),
+                            username = UserModel.getDisplayNameFromRow(row),
+                            email = UserModel.extractEmail(row),
+                            phoneNumber = UserModel.extractPhoneNumber(row),
+                            friendsSince = row[Friendships.createdAt].toInstant(ZoneOffset.UTC).toString(),
+                            userAvatarUrl = null,
+                            hasPremium = UserModel.extractHasPremium(row)
+                        ),
+                        friendId
+                    )
+                }
 
-        return (friends1 + friends2).sortedByDescending { it.friendsSince }
+            friends1 + friends2
+        }
+
+        val userIds = raw.map { it.second }.distinct()
+
+        val avatarUrls = if (userIds.isEmpty()) {
+            emptyMap()
+        } else {
+            val avatarKeys = newSuspendedTransaction(Dispatchers.IO) {
+                AvatarsTable.select(AvatarsTable.userId, AvatarsTable.objectKey)
+                    .where { (AvatarsTable.userId inList userIds) and (AvatarsTable.isActive eq true) }
+                    .associate { it[AvatarsTable.userId] to it[AvatarsTable.objectKey] }
+            }
+            avatarKeys.mapValues { (_, key) -> S3Client.getPresignedObjectUrl(key) }
+        }
+
+        return raw.map { (dto, friendId) ->
+            dto.copy(userAvatarUrl = avatarUrls[friendId])
+        }.sortedByDescending { it.friendsSince }
     }
 
     fun areFriends(userId: UUID, friendId: UUID): Boolean {

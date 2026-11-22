@@ -15,8 +15,8 @@ import java.util.UUID
 
 object PostActionsTable : Table(name = "post_actions") {
     private val id = uuid("id").uniqueIndex()
-    private val userId = uuid("user_id")
-    private val postId = uuid("post_id")
+    internal val userId = uuid("user_id")
+    internal val postId = uuid("post_id")
     private val actionType = varchar("action_type", length = 50)
     private val createdAt = timestampWithTimeZone("created_at").defaultExpression(CurrentTimestampWithTimeZone)
 

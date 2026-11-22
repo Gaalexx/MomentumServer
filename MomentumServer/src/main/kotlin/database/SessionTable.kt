@@ -22,7 +22,7 @@ data class SessionInfo(
 
 object SessionTable : Table("sessions") {
     private val sessionId = uuid("session_id")
-    private val userId = uuid("user_id")
+    internal val userId = uuid("user_id")
     private val refreshTokenHash = varchar("refrash_token_hash", 72)
     private val expiresAt = timestamp("expires_at")
     private val revokedAt = timestamp("revoked_at")

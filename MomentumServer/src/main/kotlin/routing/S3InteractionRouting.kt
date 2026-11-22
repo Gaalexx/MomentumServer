@@ -104,19 +104,24 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
 
             when (body.status) {
                 UploadingStatus.READY -> {
-                    MediaTable.changeStatus(mediaId, body.status)
+                    val postCreated = transaction {
+                        MediaTable.changeStatus(mediaId, body.status)
+                        val existingPost = PostsTable.getPostByMediaId(mediaId)
+                        if (existingPost == null) {
+                            val postId = UUID.randomUUID()
+                            val post = PostModel(postId, userId, body.title ?: "", true, createdAt = null, mediaId)
+                            PostsTable.insertNewPost(post)
+                            true
+                        } else {
+                            println("[INFO] Skipping duplicate READY status for media $mediaId")
+                            false
+                        }
+                    }
 
-
-                    val existingPost = PostsTable.getPostByMediaId(mediaId)
-                    if (existingPost == null) {
-                        val postId = UUID.randomUUID()
-                        val post = PostModel(postId, userId, body.title ?: "", true, createdAt = null, mediaId)
-                        PostsTable.insertNewPost(post)
-
+                    if (postCreated) {
                         val author = UserModel.getFullUser(userId)
                         val authorName = author?.username ?: author?.email ?: userId.toString()
-                        val friends = transaction {Friendships.getFriendsWithDetails(userId)}
-
+                        val friends = Friendships.getFriendsWithDetails(userId)
                         friends.forEach { friend ->
                             val friendId = UUID.fromString(friend.userId)
 
@@ -139,13 +144,13 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
                                             UserModel.clearPushToken(friendId, pushToken)
                                             println(
                                                 "[INFO] Invalid push token was cleared for friend $friendId " +
-                                                    "after failed push for media $mediaId: ${pushResult.errorCode ?: "UNKNOWN"}"
+                                                        "after failed push for media $mediaId: ${pushResult.errorCode ?: "UNKNOWN"}"
                                             )
                                         }
                                         else -> {
                                             println(
                                                 "[INFO] Push was not sent for media $mediaId to user $userId: " +
-                                                    "${pushResult.errorCode ?: "UNKNOWN"} ${pushResult.errorMessage ?: ""}"
+                                                        "${pushResult.errorCode ?: "UNKNOWN"} ${pushResult.errorMessage ?: ""}"
                                             )
                                         }
                                     }
@@ -153,12 +158,7 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
                                     println("[INFO] Skipping push for media $mediaId: user $userId has no push token")
                                 }
                             }
-
-
-
                         }
-
-
                     } else {
                         println("[INFO] Skipping duplicate READY status for media $mediaId")
                     }
@@ -179,10 +179,9 @@ fun Route.s3Routes(jwtService: JwtService){ // TODO доделать удале�
             val principal = call.principal<JWTPrincipal>() ?: return@post call.respond(HttpStatusCode.Unauthorized)
             val userId = UUID.fromString(principal.subject)
 
+            val listOfFriends = Friendships.getFriendsWithDetails(userId)
             val listToSend = transaction {
-                val listOfFriends = Friendships.getFriendsWithDetails(userId).toList()
                 val result = mutableListOf<PostDTO>()
-
 
                 listOfFriends.forEach { friend ->
                     val posts = PostsTable.getPostsOfUser(UUID.fromString(friend.userId))

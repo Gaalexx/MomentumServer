@@ -15,6 +15,7 @@ import com.example.database.PostsTable.getPostsIds
 import com.example.database.SessionTable.deleteAllUserSessions
 import com.example.database.SettingsTable.deleteAllSettings
 import com.example.s3Client.S3Client
+import com.example.scope.BackgroundScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -37,6 +38,11 @@ import org.jetbrains.exposed.sql.SqlExpressionBuilder
 import org.jetbrains.exposed.sql.exists
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
+import org.jetbrains.exposed.sql.or
+
+import kotlinx.coroutines.Dispatchers
+import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
 
 
 data class User(
@@ -330,43 +336,50 @@ object UserModel : Table("users") {
 
     @OptIn(DelicateCoroutinesApi::class)
     suspend fun deleteAllUserData(userId: UUID): Boolean {
-        return withContext(kotlinx.coroutines.Dispatchers.IO) {
-            transaction {
-                try {
-                    val mediaKeys = getMediaKeys(userId)
-                    val avatarKeys = getAvatarKeys(userId)
-                    val userPostIds = getPostsIds(userId)
+        val keysToDelete = mutableListOf<String>()
 
-                    deleteAllActions(userId)
-                    deleteActionsOnPosts(userPostIds)
-                    deleteAllPosts(userId)
-                    deleteAllMedia(userId)
-                    deleteAllAvatars(userId)
-                    deleteAllFriendships(userId)
-                    deleteAllFriendRequests(userId)
-                    deleteAllUserSessions(userId)
-                    deleteAllSettings(userId)
-                    val userDeleted = deleteUser(userId)
+        val userDeleted = newSuspendedTransaction(Dispatchers.IO) {
+            try {
+                val mediaKeys = MediaTable.selectAll()
+                    .where { MediaTable.userId eq userId }
+                    .map { it[MediaTable.objectKey] }
+                val avatarKeys = AvatarsTable.selectAll()
+                    .where { AvatarsTable.userId eq userId }
+                    .map { it[AvatarsTable.objectKey] }
+                keysToDelete.addAll(mediaKeys + avatarKeys)
 
-                    if (mediaKeys.isNotEmpty() || avatarKeys.isNotEmpty()) {
-                        kotlinx.coroutines.GlobalScope.launch {
-                            (mediaKeys + avatarKeys).forEach { key ->
-                                try {
-                                    S3Client.deleteObject(key)
-                                } catch (e: Exception) {
-                                    println("Failed to delete S3 object: $key, error: ${e.message}")
-                                }
-                            }
-                        }
+                val userPostIds = PostsTable.selectAll()
+                    .where { PostsTable.userId eq userId }
+                    .map { it[PostsTable.id] }
+
+                PostActionsTable.deleteWhere { PostActionsTable.userId eq userId }
+                PostActionsTable.deleteWhere { PostActionsTable.postId inList userPostIds }
+                PostsTable.deleteWhere { PostsTable.userId eq userId }
+                MediaTable.deleteWhere { MediaTable.userId eq userId }
+                AvatarsTable.deleteWhere { AvatarsTable.userId eq userId }
+                Friendships.deleteWhere { (Friendships.userId1 eq userId) or (Friendships.userId2 eq userId) }
+                FriendRequests.deleteWhere { (FriendRequests.fromUserId eq userId) or (FriendRequests.toUserId eq userId) }
+                SessionTable.deleteWhere { SessionTable.userId eq userId }
+                SettingsTable.deleteWhere { SettingsTable.userId eq userId }
+                UserModel.deleteWhere { UserModel.id eq userId } > 0
+            } catch (e: Exception) {
+                println("Error deleting user data: ${e.message}")
+                false
+            }
+        }
+
+        if (userDeleted && keysToDelete.isNotEmpty()) {
+            BackgroundScope.scope.launch {
+                keysToDelete.forEach { key ->
+                    try {
+                        S3Client.deleteObject(key)
+                    } catch (e: Exception) {
+                        println("Failed to delete S3 object: $key, error: ${e.message}")
                     }
-
-                    userDeleted
-                } catch (e: Exception) {
-                    println("Error deleting user data: ${e.message}")
-                    e.printStackTrace()
-                    false
                 }
             }
         }
+
+        return userDeleted
     }
 }

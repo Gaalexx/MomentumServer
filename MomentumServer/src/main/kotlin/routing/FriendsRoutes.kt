@@ -176,9 +176,7 @@ fun Route.friendsRoutes(jwtService: JwtService) {
             val userUUID = UUID.fromString(userId)
 
             try {
-                val incomingRequests = transaction {
-                    FriendRequests.getIncomingRequests(userUUID)
-                }
+                val incomingRequests = FriendRequests.getIncomingRequests(userUUID)
 
                 call.respond(HttpStatusCode.OK, incomingRequests)
             } catch (e: Exception) {
@@ -197,9 +195,7 @@ fun Route.friendsRoutes(jwtService: JwtService) {
             val userUUID = UUID.fromString(userId)
 
             try {
-                val outgoingRequests = transaction {
-                    FriendRequests.getOutgoingRequests(userUUID)
-                }
+                val outgoingRequests = FriendRequests.getOutgoingRequests(userUUID)
 
                 call.respond(HttpStatusCode.OK, outgoingRequests)
             } catch (e: Exception) {
@@ -219,9 +215,7 @@ fun Route.friendsRoutes(jwtService: JwtService) {
             val asSender = call.parameters["asSender"]?.toBoolean() ?: true
 
             try {
-                val rejectedRequests = transaction {
-                    FriendRequests.getRejectedOrCancelledRequests(userUUID, asSender)
-                }
+                val rejectedRequests = FriendRequests.getRejectedOrCancelledRequests(userUUID, asSender)
 
                 call.respond(HttpStatusCode.OK, rejectedRequests)
             } catch (e: Exception) {
@@ -463,9 +457,7 @@ fun Route.friendsRoutes(jwtService: JwtService) {
             val userUUID = UUID.fromString(userId)
 
             try {
-                val friends = transaction {
-                    Friendships.getFriendsWithDetails(userUUID)
-                }
+                val friends = Friendships.getFriendsWithDetails(userUUID)
 
                 call.respond(HttpStatusCode.OK, FriendshipListDTO(friends))
             } catch (e: Exception) {

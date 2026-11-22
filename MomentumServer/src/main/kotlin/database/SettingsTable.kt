@@ -15,7 +15,7 @@ import java.util.*
 
 object SettingsTable : Table(name = "settings") {
 
-    private val userId = uuid("user_id")
+    internal val userId = uuid("user_id")
     private val inAppNotifications = bool("in_app_notifications").default(true)
     private val publicationsEnabled = bool("publications_enabled").default(true)
     private val reactionsEnabled = bool("reactions_enabled").default(true)

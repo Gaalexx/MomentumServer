@@ -23,8 +23,8 @@ data class PostModel(
 )
 
 object PostsTable : Table("posts") {
-    private val id = uuid("id")
-    private val userId = uuid("user_id")
+    internal val id = uuid("id")
+    internal val userId = uuid("user_id")
     private val createdAt = timestampWithTimeZone("created_at")
     private val text = varchar("text", 120).nullable()
     private val inUse = bool("in_use").default(true)
