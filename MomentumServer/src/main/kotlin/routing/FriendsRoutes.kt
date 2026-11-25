@@ -6,6 +6,7 @@ import com.example.database.UserModel
 import com.example.database.FriendRequests
 import com.example.database.Friendships
 import com.example.tokens.JwtService
+import com.example.tokens.JwtSettings
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.*
 import io.ktor.server.response.*
@@ -21,7 +22,7 @@ import java.util.*
 import com.example.database.SettingsTable
 import com.example.firebase.PushSender
 
-private fun compareUuidAsPostgres(a: UUID, b: UUID): Int {
+internal fun compareUuidAsPostgres(a: UUID, b: UUID): Int {
     val msbCompare = java.lang.Long.compareUnsigned(a.mostSignificantBits, b.mostSignificantBits)
     if (msbCompare != 0) return msbCompare
     return java.lang.Long.compareUnsigned(a.leastSignificantBits, b.leastSignificantBits)
@@ -31,12 +32,7 @@ private fun orderedFriendPair(a: UUID, b: UUID): Pair<UUID, UUID> {
     return if (compareUuidAsPostgres(a, b) <= 0) a to b else b to a
 }
 
-fun Route.friendsRoutes(jwtService: JwtService) {
-    val jwtConfig = environment.config.config("jwt")
-    val jwtAudience = jwtConfig.property("audience").getString()
-    val jwtDomain = jwtConfig.property("domain").getString()
-    val jwtRealm = jwtConfig.property("realm").getString()
-    val jwtSecret = jwtConfig.property("secret").getString()
+fun Route.friendsRoutes(jwtService: JwtService, jwtSettings: JwtSettings) {
 
     authenticate("jwt") {
 

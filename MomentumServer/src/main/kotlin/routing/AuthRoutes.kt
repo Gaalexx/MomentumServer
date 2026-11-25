@@ -10,6 +10,7 @@ import com.example.database.SettingsTable
 import com.example.database.UserModel
 import com.example.firebase.PushSender
 import com.example.tokens.JwtService
+import com.example.tokens.JwtSettings
 import com.example.tokens.RefreshTokenGenerator
 import io.ktor.http.*
 import io.ktor.server.auth.authenticate
@@ -23,12 +24,7 @@ import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-fun Route.authRoutes(jwtService: JwtService) {
-    val jwtConfig = environment.config.config("jwt")
-    val jwtAudience = jwtConfig.property("audience").getString()
-    val jwtDomain = jwtConfig.property("domain").getString()
-    val jwtRealm = jwtConfig.property("realm").getString()
-    val jwtSecret = jwtConfig.property("secret").getString()
+fun Route.authRoutes(jwtService: JwtService, jwtSettings: JwtSettings) {
 
     authenticate("jwt"){
         post("/sync-push-token"){

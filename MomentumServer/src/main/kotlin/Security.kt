@@ -1,5 +1,6 @@
 package com.example
 
+import com.example.tokens.JwtSettings
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import io.ktor.http.*

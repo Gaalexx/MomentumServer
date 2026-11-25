@@ -61,10 +61,27 @@ dependencies {
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)
 
+    testImplementation("org.testcontainers:postgresql:1.20.4")
+    testImplementation("org.testcontainers:junit-jupiter:1.20.4")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.11.3")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
     implementation("jakarta.mail:jakarta.mail-api:2.1.1")
     implementation("org.eclipse.angus:angus-mail:2.0.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
 
 
     implementation("com.google.firebase:firebase-admin:9.8.0")
+}
+
+tasks.withType<Test> {
+    systemProperty("user.dir", project.projectDir.absolutePath)
+    useJUnitPlatform()
+    testLogging {
+        events("failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showStackTraces = true
+        showExceptions = true
+        showCauses = true
+    }
 }

@@ -3,6 +3,7 @@ package com.example
 import com.example.database.VerificationCodeRepository
 import com.example.firebase.initFirebase
 import com.example.tokens.JwtService
+import com.example.tokens.JwtSettings
 import io.ktor.server.application.*
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.sql.Database
@@ -17,38 +18,33 @@ fun main(args: Array<String>) {
     io.ktor.server.netty.EngineMain.main(args)
 }
 
-data class JwtSettings(
-    val audience: String,
-    val domain: String,
-    val realm: String,
-    val secret: String
-)
-
-fun Application.loadJwtSettings(): JwtSettings {
+fun loadConfigFromEnv(environment: ApplicationEnvironment): AppConfig{
     val jwtConfig = environment.config.config("jwt")
-
-    return JwtSettings(
-        audience = jwtConfig.property("audience").getString(),
-        domain = jwtConfig.property("domain").getString(),
-        realm = jwtConfig.property("realm").getString(),
-        secret = jwtConfig.property("secret").getString()
+    return AppConfig(
+        dbUrl = System.getenv("DB_URL") ?: "jdbc:postgresql://localhost:55000/Momentum",
+        dbUser = System.getenv("DB_USER") ?: "app",
+        dbPassword = System.getenv("DB_PASSWORD") ?: "app",
+        jwt = JwtSettings(
+            audience = jwtConfig.property("audience").getString(),
+            domain = jwtConfig.property("domain").getString(),
+            realm = jwtConfig.property("realm").getString(),
+            secret = jwtConfig.property("secret").getString()
+        ),
+        firebaseCredentialsPath = System.getenv("GOOGLE_APPLICATION_CREDENTIALS"),
+        vkClientId = environment.config.propertyOrNull("vk.client_id")?.getString()
     )
 }
 
-fun Application.module() {
+fun Application.module(config: AppConfig = loadConfigFromEnv(environment)) {
 
-    val url = System.getenv("DB_URL") ?: "jdbc:postgresql://localhost:55000/Momentum"
-    val user = System.getenv("DB_USER") ?: "app"
-    val pass = System.getenv("DB_PASSWORD") ?: "app"
+    if (config.firebaseCredentialsPath != null) {
+        initFirebase(config.firebaseCredentialsPath)
+    }
 
-    val jwtConfig = loadJwtSettings()
+    val jwtService = JwtService(config.jwt.domain, config.jwt.audience, config.jwt.secret)
 
-    initFirebase()
-
-    val jwtService = JwtService(jwtConfig.domain, jwtConfig.audience, jwtConfig.secret)
-
-    Database.connect(url, driver = "org.postgresql.Driver", user = user, password = pass)
-    runMigrations(url, user, pass)
+    Database.connect(config.dbUrl, driver = "org.postgresql.Driver", user = config.dbUser, password = config.dbPassword)
+    runMigrations(config.dbUrl, config.dbUser, config.dbPassword)
 
     // launch of background cleaning
     launch {
@@ -66,18 +62,19 @@ fun Application.module() {
 
     configureHTTP()
     configureMonitoring()
-    configureSecurity(jwtConfig)
+    configureSecurity(config.jwt)
     configureSerialization()
-    configureRouting(jwtService)
+    configureRouting(jwtService, config.jwt)
 }
 
-fun runMigrations(url: String, user: String, pass: String) {
+fun runMigrations(url: String, user: String, pass: String, locations: String = "filesystem:../db/migration") {
     Flyway.configure()
         .dataSource(
             url,
             user,
             pass
         )
+        .locations(locations)
         .driver("org.postgresql.Driver")
         .load()
         .migrate()

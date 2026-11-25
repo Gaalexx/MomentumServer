@@ -2,6 +2,7 @@ package com.example
 
 import com.example.routing.*
 import com.example.tokens.JwtService
+import com.example.tokens.JwtSettings
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.statuspages.*
@@ -16,7 +17,7 @@ data class Respond(
     val text: String
 )
 
-fun Application.configureRouting(jwtService: JwtService) {
+fun Application.configureRouting(jwtService: JwtService, jwtSettings: JwtSettings) {
     install(StatusPages) {
         exception<Throwable> { call, cause ->
             println(
@@ -29,7 +30,7 @@ fun Application.configureRouting(jwtService: JwtService) {
     routing {
         route("/api"){
             route("/momentum"){
-                authRoutes(jwtService)
+                authRoutes(jwtService, jwtSettings)
                 s3Routes(jwtService)
                 postActionsRoutes(jwtService)
                 accountRoutes(jwtService)
@@ -43,7 +44,7 @@ fun Application.configureRouting(jwtService: JwtService) {
                 get("/"){
                     call.respond("Hello Momentum!")
                 }
-                friendsRoutes(jwtService)
+                friendsRoutes(jwtService, jwtSettings)
 
 
                 route("/users"){
